@@ -22,6 +22,8 @@ model Memory {
   description String?
   note        String?
   symbol      String?  @default("pin") // pin, heart, star, flag, diamond, square
+  city        String?                 // reverse-geocoded city name
+  country     String?                 // reverse-geocoded country name
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }

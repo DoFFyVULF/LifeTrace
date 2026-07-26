@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
+import { reverseGeocode } from "@/lib/geocode";
 import type { Memory, MemoryThread } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
 import { getRandomMemoryColor, mixColors, PIN_SYMBOLS, type PinSymbol } from "@/lib/colors";
@@ -29,6 +30,8 @@ const emptyForm = {
   lat: 0,
   cover: "",
   symbol: "pin" as PinSymbol,
+  city: "",
+  country: "",
 };
 const toDateValue = (value: string | undefined, fallback: number) => {
   if (!value) return new Date(fallback).toISOString().slice(0, 10);
@@ -287,7 +290,7 @@ export function Map() {
     );
   };
   const setLocalThreads = (next: MemoryThread[]) => setThreads(next);
-  const openCreate = (lng = 0, lat = 0) =>
+  const openCreate = (lng = 0, lat = 0, city = "", country = "") =>
     setForm({
       ...emptyForm,
       color: getRandomMemoryColor(),
@@ -296,6 +299,8 @@ export function Map() {
       lng: Number(lng.toFixed(5)),
       lat: Number(lat.toFixed(5)),
       date: today(),
+      city,
+      country,
     });
   const openEdit = (memory: Memory) => {
     setEditingId(memory.id);
@@ -309,6 +314,8 @@ export function Map() {
       lng: memory.lng,
       lat: memory.lat,
       cover: isMediaSrc(memory.image) ? memory.image : "",
+      city: memory.city || "",
+      country: memory.country || "",
     });
   };
   const save = async () => {
@@ -325,6 +332,8 @@ export function Map() {
       image: form.cover || form.color,
       media: pendingMediaRef.current || (form.cover ? [form.cover] : []),
       favorite: false,
+      city: form.city || null,
+      country: form.country || null,
     };
     pendingMediaRef.current = null;
     try {
@@ -369,6 +378,8 @@ export function Map() {
       lng: memory.lng,
       lat: memory.lat,
       cover: isMediaSrc(memory.image) ? memory.image : "",
+      city: memory.city || "",
+      country: memory.country || "",
     });
     setSelectedId(null);
   };
@@ -410,7 +421,17 @@ export function Map() {
           background: `linear-gradient(135deg, ${selected.image || selected.color}, #5d6d6b)`,
         }
     : undefined;
-  const handleMapClick = useCallback((lng: number, lat: number) => {
+  const handleMapClick = useCallback(async (lng: number, lat: number) => {
+    let city = "";
+    let country = "";
+    try {
+      const geo = await reverseGeocode(lat, lng);
+      if (geo) {
+        city = geo.city || "";
+        country = geo.country || "";
+      }
+    } catch { /* geocode failed, proceed without */ }
+
     if (pendingImportRef.current) {
       const data = pendingImportRef.current;
       pendingMediaRef.current = data.media;
@@ -422,6 +443,8 @@ export function Map() {
         lng: Number(lng.toFixed(5)),
         lat: Number(lat.toFixed(5)),
         cover: data.cover,
+        city,
+        country,
       });
       setPendingImport(null);
       return;
@@ -431,7 +454,7 @@ export function Map() {
       return;
     }
     setAddMode(false);
-    openCreate(lng, lat);
+    openCreate(lng, lat, city, country);
   }, []);
   const importPhotos = async (files: File[]) => {
     const photos = files.filter(isSupportedPhoto);
@@ -472,6 +495,10 @@ export function Map() {
         gps.length;
       const lng = gps.reduce((sum, entry) => sum + Number(entry.metadata.lng), 0) /
         gps.length;
+      let city: string | null = null;
+      let country: string | null = null;
+      try { const geo = await reverseGeocode(lat, lng); if (geo) { city = geo.city; country = geo.country; } } catch { /* silent */ }
+
       // Create memory via API
       const res = await fetch("/api/memories", {
         method: "POST",
@@ -488,6 +515,8 @@ export function Map() {
           image: cover,
           media,
           favorite: false,
+          city,
+          country,
         }),
       });
       if (res.ok) {
@@ -791,6 +820,11 @@ export function Map() {
             <span className="eyebrow">SELECTED MEMORY</span>
             <h2>{selected.title}</h2>
             <p className="inspector-place">{selected.place}</p>
+            {(selected.city || selected.country) && (
+              <p className="inspector-location">
+                {[selected.city, selected.country].filter(Boolean).join(", ")}
+              </p>
+            )}
             <p className="inspector-date">{selected.date}</p>
             <div className="inspector-rule" />
             <button
@@ -923,6 +957,7 @@ export function Map() {
             />
             <div className="modal-coordinates">
               {form.lat}° lat · {form.lng}° lng
+              {form.city || form.country ? ` · ${[form.city, form.country].filter(Boolean).join(", ")}` : ""}
             </div>
             <div className="modal-color-picker">
               <span className="eyebrow">COLOR</span>

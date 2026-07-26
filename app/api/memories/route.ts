@@ -64,6 +64,8 @@ export async function POST(request: NextRequest) {
       media = [],
       favorite = false,
       symbol = "pin",
+      city = null,
+      country = null,
     } = body;
 
     if (!title?.trim()) {
@@ -86,6 +88,8 @@ export async function POST(request: NextRequest) {
         media,
         favorite,
         symbol,
+        city,
+        country,
       },
     });
 

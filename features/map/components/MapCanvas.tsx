@@ -36,6 +36,8 @@ export type Memory = {
   media?: string[];
   favorite?: boolean;
   symbol?: string;
+  city?: string | null;
+  country?: string | null;
 };
 export type MemoryThread = { id: string; memoryIds: string[] };
 
