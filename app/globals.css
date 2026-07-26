@@ -519,6 +519,7 @@ button {
   align-items: center;
   padding: 64px 12vw;
   background: #eeece6;
+  transition: background-color 0.3s ease;
 }
 .memory-hero-copy h1 {
   max-width: 520px;
@@ -664,23 +665,33 @@ button {
 .memory-title-input {
   display: block;
   width: 100%;
+  max-width: 520px;
   border: 1px solid var(--line);
-  border-radius: 6px;
-  margin: 12px 0;
-  padding: 10px;
+  border-radius: 8px;
+  margin: 12px 0 13px;
+  padding: 4px 12px;
   background: #f4f1eb;
   color: var(--ink);
-  font-size: clamp(30px, 4vw, 58px);
+  font-family: inherit;
+  font-weight: 500;
+  font-size: clamp(42px, 5vw, 72px);
+  line-height: 1;
   letter-spacing: -0.07em;
+  outline: none;
+  animation: edit-reveal 0.3s ease-out both;
 }
 .memory-location input,
 .memory-meta input {
   border: 1px solid var(--line);
-  border-radius: 4px;
-  padding: 4px 6px;
+  border-radius: 5px;
+  padding: 3px 7px;
   background: #f4f1eb;
   color: var(--ink);
+  font-family: inherit;
   font-size: inherit;
+  line-height: 1;
+  outline: none;
+  animation: edit-reveal 0.3s ease-out both;
 }
 .memory-edit-actions {
   display: flex;
@@ -1491,19 +1502,20 @@ button {
   line-height: 1.5;
 }
 .memory-description-input {
-  min-height: 82px;
-  margin: 22px 0 20px;
+  min-height: 72px;
+  margin: 22px 0 27px;
   font-size: 13px;
 }
 .memory-note-input {
-  min-height: 120px;
-  margin-top: 16px;
+  min-height: 104px;
+  margin: 17px 0 30px;
   font-size: 15px;
 }
 .add-media--save {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--paper);
+  animation: edit-reveal 0.25s ease-out both;
 }
 .media-grid {
   display: grid;
@@ -1585,6 +1597,7 @@ button {
   background: rgba(36, 55, 53, 0.78);
   color: var(--paper);
   cursor: pointer;
+  animation: edit-reveal 0.22s ease-out both;
 }
 .media-delete:hover {
   background: #b33e48;
@@ -1737,15 +1750,19 @@ button {
   opacity: 0.22;
 }
 .archive-switch-label {
+  display: inline-block;
+  min-width: 4.2em;
+  text-align: left;
   color: var(--muted);
   font-size: 11px;
   font-weight: 700;
+  transition: color 0.25s ease;
 }
 .archive-switch.is-checked .archive-switch-label {
   color: var(--ink);
 }
 .memory-description-wrap {
-  min-height: 114px;
+  min-height: 122px;
   display: grid;
   align-items: start;
 }
