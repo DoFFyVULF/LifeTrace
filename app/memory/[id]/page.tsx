@@ -235,43 +235,46 @@ export default function MemoryPage() {
             </span>
           </div>
         </div>
-        <label
-          className="memory-hero-art memory-hero-drop"
-          onDragOver={(event) => event.preventDefault()}
-          onDrop={onDrop}
-          style={
-            heroImage
-              ? {
-                  backgroundImage: `url("${heroImage}")`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                }
-              : {}
-          }
-        >
-          <input
-            className="media-input"
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            onChange={onChoose}
-          />
-          <div className="memory-art-caption">
-            {heroImage ? (
-              <>
-                <span className="caption-main">MAIN IMAGE</span>
-                <br />
-                <small>Click or drop photos and videos here to add more</small>
-              </>
-            ) : (
-              <>
+        {editing || !heroImage ? (
+          <label
+            className={`memory-hero-art memory-hero-drop ${editing ? "is-editing" : ""}`}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={onDrop}
+            style={
+              heroImage
+                ? {
+                    backgroundImage: `url("${heroImage}")`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : {}
+            }
+          >
+            <input
+              className="media-input"
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              onChange={onChoose}
+            />
+            {!heroImage && (
+              <div className="memory-art-caption">
                 <span className="caption-placeholder">PLACEHOLDER IMAGE</span>
                 <br />
                 <small>Click or drop photos and videos here</small>
-              </>
+              </div>
             )}
-          </div>
-        </label>
+          </label>
+        ) : (
+          <div
+            className="memory-hero-art"
+            style={{
+              backgroundImage: `url("${heroImage}")`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            }}
+          />
+        )}
       </section>
       <section className="memory-content">
         <div>

@@ -1577,6 +1577,38 @@ button {
 }
 .memory-hero-drop {
   cursor: pointer;
+  transition: box-shadow 0.4s ease;
+}
+.memory-hero-drop.is-editing {
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  animation: hero-glow 2.5s ease-in-out infinite;
+}
+
+@keyframes hero-glow {
+  0% {
+    box-shadow: 0 20px 50px rgba(56, 79, 70, 0.12),
+      0 0 0 0 rgba(36, 55, 53, 0.08);
+  }
+  33% {
+    box-shadow: 0 20px 50px rgba(56, 79, 70, 0.12),
+      0 0 0 4px rgba(113, 129, 123, 0.18);
+  }
+  66% {
+    box-shadow: 0 20px 50px rgba(56, 79, 70, 0.12),
+      0 0 0 4px rgba(217, 222, 216, 0.28);
+  }
+  100% {
+    box-shadow: 0 20px 50px rgba(56, 79, 70, 0.12),
+      0 0 0 0 rgba(36, 55, 53, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memory-hero-drop.is-editing {
+    animation: none;
+    outline-color: rgba(113, 129, 123, 0.25);
+  }
 }
 .delete-memory-button { display: flex; width: 100%; align-items: center; gap: 7px; border: 0; margin-top: 22px; padding: 10px 0 0; border-top: 1px solid #ead7d4; background: transparent; color: #b33e48; font-size: 11px; font-weight: 700; }.delete-memory-button:hover { color: #8f2c36; }
 .delete-modal { position: fixed; z-index: 70; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(28,35,32,.38); backdrop-filter: blur(6px); animation: modal-in .2s ease-out both; }.delete-modal-card { width: min(390px, 100%); border: 1px solid rgba(255,255,255,.72); border-radius: 16px; padding: 26px; background: var(--paper); box-shadow: 0 26px 80px rgba(36,55,53,.28); animation: modal-card-in .28s cubic-bezier(.22,1,.36,1) both; }.delete-modal-icon { display: grid; height: 42px; width: 42px; place-items: center; margin-bottom: 18px; border-radius: 12px; background: #f6d9d5; color: #b33e48; }.delete-modal-card h2 { margin: 8px 0 8px; font-size: 24px; font-weight: 500; letter-spacing: -.05em; }.delete-modal-card p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }.delete-modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 24px; }.delete-modal-actions button { border: 1px solid var(--line); border-radius: 7px; padding: 10px 13px; background: transparent; color: var(--ink); font-size: 11px; font-weight: 700; }.delete-modal-actions .delete-confirm { border-color: #b33e48; background: #b33e48; color: var(--paper); }.delete-modal-actions .delete-confirm:hover { background: #8f2c36; }
@@ -2520,7 +2552,7 @@ button {
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .constellation-star.is-active .constellation-star-shape {
-  transform: scale(1.2) rotate(36deg);
+  transform: scale(1.2);
 }
 
 /* Orbiting spark */
@@ -2657,12 +2689,12 @@ button {
 }
 .constellation-moment {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) auto;
+  grid-template-columns: 60px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
+  gap: 13px;
   border: 1px solid #e1e5e0;
-  border-radius: 9px;
-  padding: 7px;
+  border-radius: 12px;
+  padding: 12px 14px;
   background: #eeece6;
   color: var(--ink);
   text-align: left;
@@ -2683,15 +2715,25 @@ button {
   outline-offset: 3px;
 }
 .constellation-moment-art {
-  width: 34px;
-  height: 34px;
-  border-radius: 6px;
+  position: relative;
+  width: 60px;
+  height: 60px;
+  border-radius: 9px;
+  overflow: hidden;
+  background: var(--moment-image, none) center / cover;
+  background-color: var(--moment-color, var(--ink));
+}
+.constellation-moment-art::before {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
   background: linear-gradient(
-      145deg,
-      color-mix(in srgb, var(--moment-color, var(--ink)) 58%, #f4f1eb),
-      #d9ded8
-    ),
-    var(--moment-image, none) center / cover;
+    145deg,
+    var(--moment-color, var(--ink)) 0%,
+    transparent 70%
+  );
+  content: "";
+  pointer-events: none;
 }
 .constellation-moment-body {
   min-width: 0;
@@ -2704,13 +2746,13 @@ button {
   white-space: nowrap;
 }
 .constellation-moment-body strong {
-  font-size: 11px;
+  font-size: 13px;
 }
 .constellation-moment-body small,
 .constellation-moment time {
-  margin-top: 2px;
+  margin-top: 3px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 11px;
 }
 .constellation-moment time {
   align-self: start;
