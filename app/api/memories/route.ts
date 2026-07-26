@@ -1,0 +1,97 @@
+import { NextRequest } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { deleteMediaFile } from "@/lib/storage";
+
+/**
+ * GET /api/memories
+ *
+ * Returns all memories, ordered by date descending.
+ * Supports ?filter=favorites and ?search=<query> (case-insensitive, JS-side).
+ *
+ * NOTE: Search is filtered in JS because the PostgreSQL database uses C locale
+ * which does not handle Cyrillic/Multi-byte case folding (ILIKE / LOWER both
+ * only fold ASCII under C locale).
+ */
+export async function GET(request: NextRequest) {
+  const { searchParams } = request.nextUrl;
+  const filter = searchParams.get("filter");
+  const search = searchParams.get("search");
+
+  const where: Record<string, unknown> = {};
+  if (filter === "favorites") {
+    where.favorite = true;
+  }
+
+  const memories = await prisma.memory.findMany({
+    where,
+    orderBy: { date: "desc" },
+  });
+
+  if (search) {
+    const lowerSearch = search.toLowerCase();
+    return Response.json(
+      memories.filter(
+        (m) =>
+          m.title.toLowerCase().includes(lowerSearch) ||
+          m.place.toLowerCase().includes(lowerSearch) ||
+          (m.description ?? "").toLowerCase().includes(lowerSearch),
+      ),
+    );
+  }
+
+  return Response.json(memories);
+}
+
+/**
+ * POST /api/memories
+ *
+ * Create a new memory.
+ * Body: { title, place, date, lat, lng, color, kind, image, media, favorite }
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+
+    const {
+      title,
+      place = "",
+      date = "",
+      lat = 0,
+      lng = 0,
+      color = "#ef766b",
+      kind = "memory",
+      image,
+      media = [],
+      favorite = false,
+      symbol = "pin",
+    } = body;
+
+    if (!title?.trim()) {
+      return Response.json({ error: "Title is required" }, { status: 400 });
+    }
+
+    const year = date ? new Date(date).getFullYear().toString() : new Date().getFullYear().toString();
+
+    const memory = await prisma.memory.create({
+      data: {
+        title,
+        place,
+        date,
+        year,
+        lat,
+        lng,
+        color,
+        kind,
+        image: image || null,
+        media,
+        favorite,
+        symbol,
+      },
+    });
+
+    return Response.json(memory, { status: 201 });
+  } catch (error) {
+    console.error("Create memory error:", error);
+    return Response.json({ error: "Failed to create memory" }, { status: 500 });
+  }
+}

@@ -1,8 +1,20 @@
 "use client";
 
 import { Plus, Settings, UserRound } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import Logo from "./Logo";
 export function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const handleAdd = () => {
+    if (pathname === "/") {
+      window.dispatchEvent(new CustomEvent("life-trace-add"));
+    } else {
+      sessionStorage.setItem("life-trace-queue-add", "1");
+      router.push("/");
+    }
+  };
   return (
     <header className="app-header">
       <Logo />
@@ -20,20 +32,15 @@ export function Header() {
         />
       </label>
       <div className="header-actions">
-        <button
-          className="add-button"
-          onClick={() =>
-            window.dispatchEvent(new CustomEvent("life-trace-add"))
-          }
-        >
+        <button className="add-button" onClick={handleAdd}>
           <Plus size={15} /> Add memory
         </button>
         <button className="icon-button" aria-label="Settings">
           <Settings size={16} />
         </button>
-        <button className="icon-button" aria-label="Profile">
+        <Link href="/profile" className="icon-button" aria-label="Profile">
           <UserRound size={16} />
-        </button>
+        </Link>
       </div>
     </header>
   );

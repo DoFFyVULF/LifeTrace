@@ -1,16 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type TimelineMemory = { id: string; date?: string; year?: string };
-
-const loadMemories = (): TimelineMemory[] => {
-  try {
-    return JSON.parse(localStorage.getItem("life-trace-memories") || "[]");
-  } catch {
-    return [];
-  }
-};
 
 const extractYears = (memories: TimelineMemory[]) => {
   const yearSet = new Set<string>();
@@ -25,25 +17,36 @@ const extractYears = (memories: TimelineMemory[]) => {
 };
 
 export function Timeline() {
-  const [memories, setMemories] = useState<TimelineMemory[]>(() =>
-    loadMemories(),
-  );
+  const [memories, setMemories] = useState<TimelineMemory[]>([]);
   const [active, setActive] = useState("all");
   const [mounted, setMounted] = useState(false);
 
+  const fetchMemories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/memories");
+      if (res.ok) {
+        setMemories(await res.json());
+      }
+    } catch {
+      // silently fall back to empty list
+    }
+  }, []);
+
   useEffect(() => {
     setMounted(true);
+    void fetchMemories();
+
     const onState = (event: Event) => {
       const detail = (event as CustomEvent<TimelineMemory[]>).detail;
       if (Array.isArray(detail)) {
         setMemories(detail);
       } else {
-        setMemories(loadMemories());
+        void fetchMemories();
       }
     };
     window.addEventListener("life-trace-memory-state", onState);
     return () => window.removeEventListener("life-trace-memory-state", onState);
-  }, []);
+  }, [fetchMemories]);
 
   const years = ["all", ...extractYears(memories)];
   const yearCount = Math.max(years.length, 1);
@@ -67,6 +70,7 @@ export function Timeline() {
     setActive(year);
     window.dispatchEvent(new CustomEvent("life-trace-year", { detail: year }));
   };
+
   return (
     <footer className="timeline">
       <div className="timeline-head">

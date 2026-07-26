@@ -3,6 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { isMediaSrc } from "@/lib/media";
+
+// Symbol icons for custom pins
+function getSymbolIcon(symbol: string): string {
+  const icons: Record<string, string> = {
+    pin: "📍",
+    heart: "♥",
+    star: "★",
+    flag: "🚩",
+    diamond: "◆",
+    square: "■",
+    circle: "●",
+    home: "🏠",
+    camera: "📷",
+    music: "♪",
+  };
+  return icons[symbol] || "📍";
+}
 
 export type Memory = {
   id: string;
@@ -17,6 +35,7 @@ export type Memory = {
   image: string;
   media?: string[];
   favorite?: boolean;
+  symbol?: string;
 };
 export type MemoryThread = { id: string; memoryIds: string[] };
 
@@ -82,6 +101,7 @@ export function MapCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const onSelectRef = useRef(onSelect);
   const [mapReady, setMapReady] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
   const visibleThreads = useMemo(() => {
@@ -95,6 +115,10 @@ export function MapCanvas({
     () => setMapVersion((version) => version + 1),
     [],
   );
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -179,18 +203,22 @@ export function MapCanvas({
     clear();
     memories.forEach((memory) => {
       const element = document.createElement("button");
-      element.className = `real-map-pin ${selectedId === memory.id ? "is-active" : ""} ${linkingIds.includes(memory.id) ? "is-linking" : ""}`;
-      element.innerHTML = `<span class="pin-orbit-ring"><span class="pin-orbit pin-orbit--one"></span><span class="pin-orbit pin-orbit--two"></span><span class="pin-orbit pin-orbit--three"></span></span>`;
+      element.type = "button";
+      const sym = memory.symbol || "pin";
+      element.className = `real-map-pin ${linkingIds.includes(memory.id) ? "is-linking" : ""} real-map-pin--${sym}${sym !== "pin" ? " real-map-pin--custom" : ""}`;
       element.style.setProperty("--pin-color", memory.color);
+      element.dataset.memoryId = memory.id;
+
+      // Render custom symbol based on memory.symbol
+      if (sym === "pin") {
+        element.innerHTML = `<span class="pin-orbit-ring"><span class="pin-orbit pin-orbit--one"></span><span class="pin-orbit pin-orbit--two"></span><span class="pin-orbit pin-orbit--three"></span></span>`;
+      } else {
+        element.innerHTML = `<span class="pin-symbol">${getSymbolIcon(sym)}</span>`;
+      }
       const orbitImages = (
-        memory.media?.filter(
-          (src) => src.startsWith("data:") || src.startsWith("http"),
-        ) ?? []
+        memory.media?.filter((src) => isMediaSrc(src)) ?? []
       ).slice(0, 3);
-      const cover =
-        memory.image?.startsWith("data:") || memory.image?.startsWith("http")
-          ? memory.image
-          : "";
+      const cover = isMediaSrc(memory.image) ? memory.image : "";
       element
         .querySelectorAll<HTMLElement>(".pin-orbit")
         .forEach((orbit, index) => {
@@ -203,9 +231,14 @@ export function MapCanvas({
           );
         });
       element.setAttribute("aria-label", memory.title);
+      const stopMapInteraction = (event: Event) => event.stopPropagation();
+      element.addEventListener("pointerdown", stopMapInteraction);
+      element.addEventListener("pointermove", stopMapInteraction);
+      element.addEventListener("mousedown", stopMapInteraction);
+      element.addEventListener("dblclick", stopMapInteraction);
       element.onclick = (event) => {
         event.stopPropagation();
-        onSelect(memory);
+        onSelectRef.current(memory);
         map.flyTo({
           center: [memory.lng, memory.lat],
           zoom: Math.max(map.getZoom(), 4.5),
@@ -286,13 +319,18 @@ export function MapCanvas({
   }, [
     memories,
     threadMemories,
-    selectedId,
-    onSelect,
     showThreads,
     visibleThreads,
     linkingIds,
     mapReady,
   ]);
+
+  useEffect(() => {
+    markersRef.current.forEach((marker) => {
+      const element = marker.getElement();
+      element.classList.toggle("is-active", element.dataset.memoryId === selectedId);
+    });
+  }, [selectedId, mapReady]);
 
   const overlayPaths = useMemo(() => {
     const map = mapRef.current;
@@ -306,6 +344,7 @@ export function MapCanvas({
         {
           points: points.map((memory) => map.project([memory.lng, memory.lat])),
           memories: points,
+          color: points[0]?.color || threadPalette[0],
         },
       ];
     });
@@ -319,39 +358,36 @@ export function MapCanvas({
       <div className="maplibre-host" ref={containerRef} />
       {overlayPaths.length > 0 && (
         <svg className="thread-overlay" aria-hidden="true">
-          {overlayPaths.map(
-            ({ points, memories: connectedMemories }, index) => {
-              const color = threadPalette[index % threadPalette.length];
-              return (
-                <g key={index}>
-                  <polyline
-                    className="thread-overlay-shadow"
-                    points={points
-                      .map((point) => `${point.x},${point.y}`)
-                      .join(" ")}
+          {overlayPaths.map(({ points, memories: connectedMemories, color }, index) => {
+            return (
+              <g key={index}>
+                <polyline
+                  className="thread-overlay-shadow"
+                  points={points
+                    .map((point) => `${point.x},${point.y}`)
+                    .join(" ")}
+                />
+                <polyline
+                  className="thread-overlay-line"
+                  style={{ stroke: color }}
+                  points={points
+                    .map((point) => `${point.x},${point.y}`)
+                    .join(" ")}
+                />
+                {points.map((point, pointIndex) => (
+                  <circle
+                    key={`${index}-${pointIndex}`}
+                    className="thread-overlay-node"
+                    cx={point.x}
+                    cy={point.y}
+                    r="8"
+                    fill={color}
+                    stroke={connectedMemories[pointIndex].color}
                   />
-                  <polyline
-                    className="thread-overlay-line"
-                    style={{ stroke: color }}
-                    points={points
-                      .map((point) => `${point.x},${point.y}`)
-                      .join(" ")}
-                  />
-                  {points.map((point, pointIndex) => (
-                    <circle
-                      key={`${index}-${pointIndex}`}
-                      className="thread-overlay-node"
-                      cx={point.x}
-                      cy={point.y}
-                      r="8"
-                      fill={color}
-                      stroke={connectedMemories[pointIndex].color}
-                    />
-                  ))}
-                </g>
-              );
-            },
-          )}
+                ))}
+              </g>
+            );
+          })}
         </svg>
       )}
     </div>

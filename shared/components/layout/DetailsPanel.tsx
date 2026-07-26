@@ -1,7 +1,7 @@
 "use client";
 
 import { CalendarDays, Image, Link2, MoreHorizontal } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type NoteMemory = {
   id: string;
@@ -15,24 +15,27 @@ type Thread = { id: string; memoryIds: string[] };
 export function DetailsPanel() {
   const [memories, setMemories] = useState<NoteMemory[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
-  useEffect(() => {
-    const read = () => {
-      try {
-        setMemories(
-          JSON.parse(localStorage.getItem("life-trace-memories") || "[]"),
-        );
-        setThreads(
-          JSON.parse(localStorage.getItem("life-trace-threads") || "[]"),
-        );
-      } catch {
-        setMemories([]);
-        setThreads([]);
-      }
-    };
-    read();
-    window.addEventListener("life-trace-memory-state", read);
-    return () => window.removeEventListener("life-trace-memory-state", read);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [memoriesRes, threadsRes] = await Promise.all([
+        fetch("/api/memories"),
+        fetch("/api/threads"),
+      ]);
+      if (memoriesRes.ok) setMemories(await memoriesRes.json());
+      if (threadsRes.ok) setThreads(await threadsRes.json());
+    } catch {
+      // silent
+    }
   }, []);
+
+  useEffect(() => {
+    void fetchData();
+    const onState = () => void fetchData();
+    window.addEventListener("life-trace-memory-state", onState);
+    return () => window.removeEventListener("life-trace-memory-state", onState);
+  }, [fetchData]);
+
   const latest = useMemo(
     () => [...memories].sort((a, b) => b.date.localeCompare(a.date))[0],
     [memories],
@@ -46,6 +49,7 @@ export function DetailsPanel() {
     : 0;
   const viewConnections = () =>
     window.dispatchEvent(new CustomEvent("life-trace-show-threads"));
+
   return (
     <aside className="details-panel">
       <div className="archive-notes-head">

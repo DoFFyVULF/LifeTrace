@@ -7,13 +7,16 @@ import {
   Layers3,
   Link2,
   Map as MapIcon,
+  Pencil,
   SlidersHorizontal,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
+import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import type { Memory, MemoryThread } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
+import { getRandomMemoryColor, mixColors, PIN_SYMBOLS, type PinSymbol } from "@/lib/colors";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyForm = {
@@ -25,20 +28,7 @@ const emptyForm = {
   lng: 0,
   lat: 0,
   cover: "",
-};
-const loadMemories = (): Memory[] => {
-  try {
-    return JSON.parse(localStorage.getItem("life-trace-memories") || "[]");
-  } catch {
-    return [];
-  }
-};
-const loadThreads = (): MemoryThread[] => {
-  try {
-    return JSON.parse(localStorage.getItem("life-trace-threads") || "[]");
-  } catch {
-    return [];
-  }
+  symbol: "pin" as PinSymbol,
 };
 const toDateValue = (value: string | undefined, fallback: number) => {
   if (!value) return new Date(fallback).toISOString().slice(0, 10);
@@ -176,71 +166,6 @@ const readPhotoMetadata = async (
     return { date: toDateValue(undefined, fallback) };
   }
 };
-const readDataUrl = (file: File) =>
-  new Promise<string>((resolve, reject) => {
-    const isHeic =
-      file.type.includes("heic") ||
-      file.type.includes("heif") ||
-      /\.(heic|heif)$/i.test(file.name);
-    if (isHeic) {
-      import("heic2any")
-        .then(async ({ default: heic2any }) => {
-          const converted = await heic2any({
-            blob: file,
-            toType: "image/jpeg",
-            quality: 0.82,
-          });
-          const blob = Array.isArray(converted) ? converted[0] : converted;
-          resolve(
-            await readDataUrl(
-              new File([blob], `${file.name}.jpg`, { type: "image/jpeg" }),
-            ),
-          );
-        })
-        .catch(reject);
-      return;
-    }
-    if (!file.type.startsWith("image/") || file.type.includes("svg")) {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-      return;
-    }
-    const source = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      try {
-        const maxSize = 1440;
-        const scale = Math.min(
-          1,
-          maxSize / Math.max(image.naturalWidth, image.naturalHeight),
-        );
-        const canvas = document.createElement("canvas");
-        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-        const context = canvas.getContext("2d");
-        if (!context) throw new Error("Canvas unavailable");
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.78));
-      } catch {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      } finally {
-        URL.revokeObjectURL(source);
-      }
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(source);
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    };
-    image.src = source;
-  });
 const isSupportedPhoto = (file: File) =>
   file.type.startsWith("image/") ||
   /\.(heic|heif|jpg|jpeg|png|webp|gif|avif|bmp|tif|tiff)$/i.test(file.name);
@@ -269,6 +194,7 @@ export function Map() {
     title: string;
     date: string;
   } | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
   const selectedRef = useRef<string | null>(null);
@@ -283,8 +209,25 @@ export function Map() {
     pendingImportRef.current = pendingImport;
   }, [pendingImport]);
   useEffect(() => {
-    setMemories(loadMemories());
-    setThreads(loadThreads());
+    void (async () => {
+      try {
+        const [m, t] = await Promise.all([
+          fetch("/api/memories").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/threads").then((r) => (r.ok ? r.json() : [])),
+        ]);
+        setMemories(m as Memory[]);
+        setThreads(t as MemoryThread[]);
+      } catch {
+        setMemories([]);
+        setThreads([]);
+      }
+    })();
+    if (sessionStorage.getItem("life-trace-queue-add") === "1") {
+      sessionStorage.removeItem("life-trace-queue-add");
+      setForm(null);
+      setSelectedId(null);
+      setAddMode(true);
+    }
     const onYear = (event: Event) =>
       setActiveYear((event as CustomEvent<string>).detail);
     const onSearch = (event: Event) =>
@@ -325,59 +268,120 @@ export function Map() {
       window.removeEventListener("life-trace-show-threads", onShowThreads);
     };
   }, []);
-  const persist = (next: Memory[]) => {
-    try {
-      localStorage.setItem("life-trace-memories", JSON.stringify(next));
-      setMemories(next);
-      return true;
-    } catch (error) {
-      if (
-        error instanceof DOMException &&
-        (error.name === "QuotaExceededError" || error.code === 22)
-      )
-        setImportToast(
-          "Не хватает места в браузерном хранилище. Удалите старые медиа и повторите импорт.",
-        );
-      else setImportToast("Не удалось сохранить воспоминание.");
-      return false;
-    }
+  const setLocalMemories = (next: Memory[]) => {
+    setMemories(next);
+    window.dispatchEvent(
+      new CustomEvent("life-trace-memory-state", {
+        detail: next.map(
+          ({ id, title, place, date, color, favorite, image }) => ({
+            id,
+            title,
+            place,
+            date,
+            color,
+            favorite,
+            image,
+          }),
+        ),
+      }),
+    );
   };
-  const persistThreads = (next: MemoryThread[]) => {
-    setThreads(next);
-    localStorage.setItem("life-trace-threads", JSON.stringify(next));
-  };
+  const setLocalThreads = (next: MemoryThread[]) => setThreads(next);
   const openCreate = (lng = 0, lat = 0) =>
     setForm({
       ...emptyForm,
+      color: getRandomMemoryColor(),
+      symbol: "pin",
       place: lng || lat ? `${lat.toFixed(5)}°, ${lng.toFixed(5)}°` : "",
       lng: Number(lng.toFixed(5)),
       lat: Number(lat.toFixed(5)),
       date: today(),
     });
-  const create = () => {
+  const openEdit = (memory: Memory) => {
+    setEditingId(memory.id);
+    setForm({
+      title: memory.title,
+      place: memory.place,
+      date: memory.date,
+      kind: memory.kind,
+      color: memory.color,
+      symbol: (memory.symbol as PinSymbol) || "pin",
+      lng: memory.lng,
+      lat: memory.lat,
+      cover: isMediaSrc(memory.image) ? memory.image : "",
+    });
+  };
+  const save = async () => {
     if (!form?.title.trim()) return;
-    const memory: Memory = {
-      ...form,
-      id: crypto.randomUUID(),
-      year: form.date
-        ? new Date(form.date).getFullYear().toString()
-        : new Date().getFullYear().toString(),
-      image: form.cover || form.color,
+    const memoryData = {
+      title: form.title,
+      place: form.place,
       date: form.date || new Date().toISOString().slice(0, 10),
+      lat: form.lat,
+      lng: form.lng,
+      color: form.color,
+      kind: form.kind,
+      symbol: form.symbol,
+      image: form.cover || form.color,
       media: pendingMediaRef.current || (form.cover ? [form.cover] : []),
       favorite: false,
     };
     pendingMediaRef.current = null;
-    persist([...memories, memory]);
-    setSelectedId(memory.id);
-    setForm(null);
+    try {
+      if (editingId) {
+        // Update existing memory
+        const res = await fetch(`/api/memories/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(memoryData),
+        });
+        if (!res.ok) throw new Error("Update failed");
+        const updated: Memory = await res.json();
+        setLocalMemories(memories.map((m) => (m.id === editingId ? updated : m)));
+        setSelectedId(updated.id);
+      } else {
+        // Create new memory
+        const res = await fetch("/api/memories", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(memoryData),
+        });
+        if (!res.ok) throw new Error("Create failed");
+        const created: Memory = await res.json();
+        setLocalMemories([...memories, created]);
+        setSelectedId(created.id);
+      }
+      setForm(null);
+      setEditingId(null);
+    } catch {
+      setImportToast("Не удалось сохранить воспоминание.");
+    }
   };
-  const setCover = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const startEdit = (memory: Memory) => {
+    setEditingId(memory.id);
+    setForm({
+      title: memory.title,
+      place: memory.place,
+      date: memory.date,
+      kind: memory.kind,
+      color: memory.color,
+      symbol: (memory.symbol as PinSymbol) || "pin",
+      lng: memory.lng,
+      lat: memory.lat,
+      cover: isMediaSrc(memory.image) ? memory.image : "",
+    });
+    setSelectedId(null);
+  };
+  const setCover = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    void readDataUrl(file).then((cover) =>
-      setForm((current) => (current ? { ...current, cover } : current)),
-    );
+    try {
+      const { blob, name } = await prepareUpload(file);
+      const url = await uploadMedia(blob, name);
+      setForm((current) => (current ? { ...current, cover: url } : current));
+    } catch {
+      setImportToast("Не удалось загрузить изображение.");
+    }
   };
   const visible = useMemo(
     () =>
@@ -396,7 +400,7 @@ export function Map() {
   );
   const selected = memories.find((memory) => memory.id === selectedId) ?? null;
   const inspectorStyle = selected
-    ? selected.image?.startsWith("data:")
+    ? isMediaSrc(selected.image)
       ? {
           backgroundImage: `url(${selected.image})`,
           backgroundSize: "cover",
@@ -439,12 +443,14 @@ export function Map() {
     }
     setImporting(true);
     try {
+      // Upload all photos and read metadata in parallel
       const entries = await Promise.all(
-        photos.map(async (file) => ({
-          file,
-          data: await readDataUrl(file),
-          metadata: await readPhotoMetadata(file),
-        })),
+        photos.map(async (file) => {
+          const { blob, name } = await prepareUpload(file);
+          const url = await uploadMedia(blob, name);
+          const metadata = await readPhotoMetadata(file);
+          return { url, metadata };
+        }),
       );
       const gps = entries.filter(
         (entry) =>
@@ -453,42 +459,49 @@ export function Map() {
       const date =
         entries.map((entry) => entry.metadata.date).sort()[0] || today();
       const title =
-        entries.length === 1
-          ? entries[0].file.name.replace(/\.[^.]+$/, "")
-          : `${entries[0].file.name.replace(/\.[^.]+$/, "")} + ${entries.length - 1} photos`;
+        photos.length === 1
+          ? photos[0].name.replace(/\.[^.]+$/, "")
+          : `${photos[0].name.replace(/\.[^.]+$/, "")} + ${photos.length - 1} photos`;
+      const cover = entries[0].url;
+      const media = entries.map((entry) => entry.url);
       if (!gps.length) {
-        setPendingImport({
-          cover: entries[0].data,
-          media: entries.map((entry) => entry.data),
-          title,
-          date,
-        });
+        setPendingImport({ cover, media, title, date });
         return;
       }
       const lat = gps.reduce((sum, entry) => sum + Number(entry.metadata.lat), 0) /
         gps.length;
       const lng = gps.reduce((sum, entry) => sum + Number(entry.metadata.lng), 0) /
         gps.length;
-      const memory: Memory = {
-        id: crypto.randomUUID(),
-        title,
-        place: `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
-        date,
-        year: date.slice(0, 4),
-        lng,
-        lat,
-        color: "#ef766b",
-        kind: "memory",
-        image: entries[0].data,
-        media: entries.map((entry) => entry.data),
-        favorite: false,
-      };
-      if (persist([...memories, memory])) {
-        setSelectedId(memory.id);
+      // Create memory via API
+      const res = await fetch("/api/memories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          place: `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
+          date,
+          lat,
+          lng,
+          color: getRandomMemoryColor(),
+          symbol: "pin",
+          kind: "memory",
+          image: cover,
+          media,
+          favorite: false,
+        }),
+      });
+      if (res.ok) {
+        const created: Memory = await res.json();
+        setLocalMemories([...memories, created]);
+        setSelectedId(created.id);
         setImportToast(
           `${entries.length} ${entries.length === 1 ? "photo" : "photos"} added as a memory`,
         );
+      } else {
+        throw new Error("Create failed");
       }
+    } catch {
+      setImportToast("Не удалось сохранить воспоминание.");
     } finally {
       setImporting(false);
     }
@@ -507,37 +520,102 @@ export function Map() {
           : [...ids, id]
         : ids,
     );
-  const saveThread = () => {
+  const saveThread = async () => {
     if (!linkingIds || linkingIds.length < 2) return;
-    persistThreads([
-      ...threads,
-      { id: crypto.randomUUID(), memoryIds: linkingIds },
-    ]);
+    try {
+      // Compute mixed color from linked memories
+      const linkedMemories = memories.filter((m) => linkingIds.includes(m.id));
+      const mixedColor = mixColors(linkedMemories.map((m) => m.color));
+
+      // Update all linked memories with the mixed color
+      const updatedMemories = memories.map((memory) =>
+        linkingIds.includes(memory.id) ? { ...memory, color: mixedColor } : memory,
+      );
+      setLocalMemories(updatedMemories);
+
+      // Persist color changes to API
+      await Promise.all(
+        linkingIds.map((id) =>
+          fetch(`/api/memories/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ color: mixedColor }),
+          }),
+        ),
+      );
+
+      const res = await fetch("/api/threads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ memoryIds: linkingIds }),
+      });
+      if (res.ok) {
+        const created: MemoryThread = await res.json();
+        setLocalThreads([...threads, created]);
+      }
+    } catch {
+      /* silent */
+    }
     setLinkingIds(null);
     setShowThreads(true);
   };
-  const toggleFavorite = (id: string) =>
-    persist(
+  const toggleFavorite = async (id: string) => {
+    const target = memories.find((memory) => memory.id === id);
+    if (!target) return;
+    const nextFavorite = !target.favorite;
+    // Optimistic update
+    setLocalMemories(
       memories.map((memory) =>
-        memory.id === id ? { ...memory, favorite: !memory.favorite } : memory,
+        memory.id === id ? { ...memory, favorite: nextFavorite } : memory,
       ),
     );
-  const deleteMemory = () => {
+    try {
+      await fetch(`/api/memories/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ favorite: nextFavorite }),
+      });
+    } catch {
+      // Rollback on failure
+      setLocalMemories(
+        memories.map((memory) =>
+          memory.id === id ? { ...memory, favorite: !nextFavorite } : memory,
+        ),
+      );
+    }
+  };
+  const deleteMemory = async () => {
     if (!deleteTarget) return;
+    const targetId = deleteTarget.id;
+    // Optimistic update
     const nextMemories = memories.filter(
-      (memory) => memory.id !== deleteTarget.id,
+      (memory) => memory.id !== targetId,
     );
     const nextThreads = threads
       .map((thread) => ({
         ...thread,
-        memoryIds: thread.memoryIds.filter((id) => id !== deleteTarget.id),
+        memoryIds: thread.memoryIds.filter((id) => id !== targetId),
       }))
       .filter((thread) => thread.memoryIds.length > 1);
-    if (persist(nextMemories)) {
-      persistThreads(nextThreads);
-      setSelectedId(null);
-      setDeleteTarget(null);
-      setImportToast(`“${deleteTarget.title}” deleted`);
+    setLocalMemories(nextMemories);
+    setLocalThreads(nextThreads);
+    setSelectedId(null);
+    setDeleteTarget(null);
+    setImportToast(`“${deleteTarget.title}” deleted`);
+    try {
+      await fetch(`/api/memories/${targetId}`, { method: "DELETE" });
+    } catch {
+      // Re-fetch to reconcile
+      try {
+        const [m, t] = await Promise.all([
+          fetch("/api/memories").then((r) => (r.ok ? r.json() : [])),
+          fetch("/api/threads").then((r) => (r.ok ? r.json() : [])),
+        ]);
+        setLocalMemories(m as Memory[]);
+        setLocalThreads(t as MemoryThread[]);
+      } catch {
+        /* silent */
+      }
     }
   };
   useEffect(() => {
@@ -725,6 +803,12 @@ export function Map() {
               />
               {selected.favorite ? "Remove favorite" : "Add to favorites"}
             </button>
+            <button
+              className="open-memory"
+              onClick={() => startEdit(selected)}
+            >
+              <Pencil size={14} /> Edit
+            </button>
             {linkingIds ? (
               <button
                 className="open-memory"
@@ -794,10 +878,10 @@ export function Map() {
           <div className="memory-modal-card">
             <div className="modal-head">
               <div>
-                <span className="eyebrow">NEW MEMORY</span>
-                <h2>Add a place to your story</h2>
+                <span className="eyebrow">{editingId ? "EDIT MEMORY" : "NEW MEMORY"}</span>
+                <h2>{editingId ? "Edit your memory" : "Add a place to your story"}</h2>
               </div>
-              <button onClick={() => { setForm(null); pendingMediaRef.current = null; }}>
+              <button onClick={() => { setForm(null); setEditingId(null); pendingMediaRef.current = null; }}>
                 <X size={17} />
               </button>
             </div>
@@ -840,8 +924,43 @@ export function Map() {
             <div className="modal-coordinates">
               {form.lat}° lat · {form.lng}° lng
             </div>
-            <button className="modal-submit" onClick={create}>
-              Save memory
+            <div className="modal-color-picker">
+              <span className="eyebrow">COLOR</span>
+              <div className="color-swatches">
+                {PIN_SYMBOLS.map((s) => s.id === "pin" ? null : s.id).filter(Boolean).map((id) => null)}
+                {["#ef766b", "#c6535b", "#8b6bb3", "#3f8290", "#b47b3f", "#668d68", "#9a6480", "#d4a574", "#5a9bd8", "#c472b9"].map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`color-swatch ${form.color === color ? "is-active" : ""}`}
+                    style={{ background: color }}
+                    onClick={() => setForm({ ...form, color })}
+                    aria-label={color}
+                    aria-pressed={form.color === color}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="modal-symbol-picker">
+              <span className="eyebrow">SYMBOL</span>
+              <div className="symbol-grid">
+                {PIN_SYMBOLS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`symbol-btn ${form.symbol === s.id ? "is-active" : ""}`}
+                    onClick={() => setForm({ ...form, symbol: s.id })}
+                    aria-label={s.id}
+                    aria-pressed={form.symbol === s.id}
+                  >
+                    <span className="symbol-icon">{s.icon}</span>
+                    <span className="symbol-label">{s.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button className="modal-submit" onClick={save}>
+              {editingId ? "Save changes" : "Save memory"}
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
-import { Compass, Heart, MapPinned, Star } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { isMediaSrc } from "@/lib/media";
+import { Compass, Heart, MapPinned, Star, Clock } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type ArchiveMemory = {
   id: string;
@@ -13,82 +14,133 @@ type ArchiveMemory = {
 };
 type Collection = { id: string; name: string; memoryIds: string[] };
 
+const RECENT_KEY = "life-trace-recent-memories";
+const MAX_RECENT = 5;
+
+function getRecentIds(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addRecentId(id: string) {
+  const ids = getRecentIds().filter((i) => i !== id);
+  ids.unshift(id);
+  localStorage.setItem(RECENT_KEY, JSON.stringify(ids.slice(0, MAX_RECENT)));
+}
+
 export function Sidebar() {
   const [memories, setMemories] = useState<ArchiveMemory[]>([]);
-  const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionOpen, setCollectionOpen] = useState(false);
   const [collectionName, setCollectionName] = useState("");
   const [collectionSelection, setCollectionSelection] = useState<string[]>([]);
-  useEffect(() => {
-    const onState = (event: Event) =>
-      setMemories((event as CustomEvent<ArchiveMemory[]>).detail);
-    const onFilter = (event: Event) =>
-      setFilter((event as CustomEvent<"all" | "favorites">).detail);
+
+  const fetchCollections = useCallback(async () => {
     try {
-      setCollections(
-        JSON.parse(localStorage.getItem("life-trace-collections") || "[]"),
-      );
+      const res = await fetch("/api/collections");
+      if (res.ok) setCollections(await res.json());
     } catch {
-      setCollections([]);
+      // silent
     }
+  }, []);
+
+  useEffect(() => {
+    setRecentIds(getRecentIds());
+
+    const onState = (event: Event) => {
+      const detail = (event as CustomEvent<ArchiveMemory[]>).detail;
+      setMemories(detail);
+      // Prune recent IDs that no longer exist
+      const validIds = detail.map((m) => m.id);
+      const ids = getRecentIds().filter((id) => validIds.includes(id));
+      setRecentIds(ids);
+      localStorage.setItem(RECENT_KEY, JSON.stringify(ids));
+    };
+    const onSelect = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      if (id) {
+        addRecentId(id);
+        setRecentIds(getRecentIds());
+      }
+    };
+    void fetchCollections();
     window.addEventListener("life-trace-memory-state", onState);
-    window.addEventListener("life-trace-filter", onFilter);
+    window.addEventListener("life-trace-select", onSelect);
     return () => {
       window.removeEventListener("life-trace-memory-state", onState);
-      window.removeEventListener("life-trace-filter", onFilter);
+      window.removeEventListener("life-trace-select", onSelect);
     };
-  }, []);
+  }, [fetchCollections]);
+
+  // Show all memories (Recent tab) or only favorites (Favorites tab)
   const shown = useMemo(
     () =>
-      filter === "favorites"
+      showFavoritesOnly
         ? memories.filter((memory) => memory.favorite)
         : memories,
-    [filter, memories],
+    [showFavoritesOnly, memories],
   );
-  const chooseFilter = (value: "all" | "favorites") => {
-    setFilter(value);
+
+  const chooseFilter = (showFav: boolean) => {
+    setShowFavoritesOnly(showFav);
     window.dispatchEvent(
-      new CustomEvent("life-trace-filter", { detail: value }),
+      new CustomEvent("life-trace-filter", { detail: showFav ? "favorites" : "all" }),
     );
   };
-  const createCollection = () => {
+
+  const createCollection = async () => {
     const name = collectionName.trim();
     if (!name || !collectionSelection.length) return;
-    const next = [
-      ...collections,
-      { id: crypto.randomUUID(), name, memoryIds: collectionSelection },
-    ];
-    setCollections(next);
-    localStorage.setItem("life-trace-collections", JSON.stringify(next));
+
+    try {
+      const res = await fetch("/api/collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, memoryIds: collectionSelection }),
+      });
+      if (res.ok) {
+        const created = await res.json();
+        setCollections((prev) => [...prev, created]);
+      }
+    } catch {
+      // silent
+    }
+
     setCollectionName("");
     setCollectionSelection([]);
     setCollectionOpen(false);
   };
+
   const openCollection = (collection: Collection) => {
-    setFilter("all");
     window.dispatchEvent(
       new CustomEvent("life-trace-collection", {
         detail: collection.memoryIds,
       }),
     );
   };
+
   return (
     <aside className="sidebar">
       <span className="panel-label">Your archive</span>
       <h2>
-        Memories <small className="sidebar-count">{memories.length}</small>
+        Recent <small className="sidebar-count">{memories.length} total</small>
       </h2>
       <nav className="filter-tabs">
         <button
-          className={filter === "all" ? "is-active" : ""}
-          onClick={() => chooseFilter("all")}
+          className={!showFavoritesOnly ? "is-active" : ""}
+          onClick={() => chooseFilter(false)}
         >
-          All
+          <Clock size={12} /> Recent
         </button>
         <button
-          className={filter === "favorites" ? "is-active" : ""}
-          onClick={() => chooseFilter("favorites")}
+          className={showFavoritesOnly ? "is-active" : ""}
+          onClick={() => chooseFilter(true)}
         >
           <Heart size={12} /> Favorites{" "}
           <small>{memories.filter((memory) => memory.favorite).length}</small>
@@ -97,9 +149,7 @@ export function Sidebar() {
       {shown.length ? (
         <div className="memory-list">
           {shown.map((memory) => {
-            const hasImage =
-              memory.image?.startsWith("data:") ||
-              memory.image?.startsWith("http");
+            const hasImage = isMediaSrc(memory.image);
             return (
               <button
                 className="memory-row"
@@ -136,21 +186,21 @@ export function Sidebar() {
         <div className="sidebar-empty">
           <MapPinned size={22} />
           <p>
-            {filter === "favorites"
+            {showFavoritesOnly
               ? "No favorites yet."
               : "Your archive is ready for its first story."}
           </p>
           <small>
-            {filter === "favorites"
+            {showFavoritesOnly
               ? "Mark a memory with the heart to keep it close."
-              : "Click the map or drop a photo to add a memory."}
+              : "Add your first memory on the map to get started."}
           </small>
         </div>
       )}
       <div className="sidebar-links">
-        <button onClick={() => chooseFilter("favorites")}>
+        <button onClick={() => chooseFilter(!showFavoritesOnly)}>
           <Heart size={14} />
-          Favorites
+          {showFavoritesOnly ? "Show recent" : "Favorites only"}
         </button>
         <button onClick={() => setCollectionOpen((open) => !open)}>
           <Compass size={14} />
@@ -174,7 +224,7 @@ export function Sidebar() {
         </button>
         <span>
           <Star size={14} />
-          {shown.length} visible moments
+          {shown.length} {showFavoritesOnly ? "favorites" : "memories"}
         </span>
       </div>
       {collectionOpen && (

@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Memory } from "@/features/map/components/MapCanvas";
 import { Switch } from "@/shared/components/ui/Switch";
+import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 
 type EditableMemory = Memory & { description?: string; note?: string };
 const defaultDescription =
@@ -32,29 +33,36 @@ export default function MemoryPage() {
   const [memory, setMemory] = useState<EditableMemory | null>(null);
   const [editing, setEditing] = useState(false);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
   useEffect(() => {
-    try {
-      const items = JSON.parse(
-        localStorage.getItem("life-trace-memories") || "[]",
-      ) as EditableMemory[];
-      setMemory(items.find((item) => item.id === id) ?? null);
-    } catch {
-      setMemory(null);
-    }
+    void (async () => {
+      try {
+        const res = await fetch(`/api/memories/${id}`);
+        if (res.ok) {
+          setMemory(await res.json());
+        } else {
+          setMemory(null);
+        }
+      } catch {
+        setMemory(null);
+      }
+    })();
   }, [id]);
-  const persist = (updated: EditableMemory) => {
+
+  const persist = async (updated: EditableMemory) => {
     setMemory(updated);
-    const items = JSON.parse(
-      localStorage.getItem("life-trace-memories") || "[]",
-    ) as EditableMemory[];
-    localStorage.setItem(
-      "life-trace-memories",
-      JSON.stringify(
-        items.map((item) => (item.id === updated.id ? updated : item)),
-      ),
-    );
-    window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
+    try {
+      await fetch(`/api/memories/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updated),
+      });
+      window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
+    } catch {
+      // silent
+    }
   };
+
   const update = (
     key: keyof Pick<
       EditableMemory,
@@ -71,48 +79,50 @@ export default function MemoryPage() {
           }
         : current,
     );
+
   const media = memory?.media ?? [];
-  const heroImage =
-    memory?.image?.startsWith("data:") || memory?.image?.startsWith("http")
-      ? memory.image
-      : media[0];
-  const addPhotos = (files: File[]) => {
+  const heroImage = memory ? (isMediaSrc(memory.image) ? memory.image : media[0]) : undefined;
+
+  const addPhotos = async (files: File[]) => {
     if (!memory || !files.length) return;
-    Promise.all(
-      files.map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-          }),
-      ),
-    ).then((photos) =>
+    try {
+      const urls = await Promise.all(
+        files.map(async (file) => {
+          const { blob, name } = await prepareUpload(file);
+          return uploadMedia(blob, name);
+        }),
+      );
+      const nextMedia = [...media, ...urls];
       persist({
         ...memory,
-        image: memory.image?.startsWith("data:") ? memory.image : photos[0],
-        media: [...media, ...photos],
-      }),
-    );
+        image: isMediaSrc(memory.image) ? memory.image : urls[0],
+        media: nextMedia,
+      });
+    } catch {
+      // silent
+    }
   };
+
   const onChoose = (event: React.ChangeEvent<HTMLInputElement>) => {
-    addPhotos(Array.from(event.target.files ?? []));
+    void addPhotos(Array.from(event.target.files ?? []));
     event.target.value = "";
   };
+
   const onDrop = (event: React.DragEvent<HTMLLabelElement>) => {
     event.preventDefault();
-    addPhotos(
+    void addPhotos(
       Array.from(event.dataTransfer.files).filter(
         (file) =>
           file.type.startsWith("image/") || file.type.startsWith("video/"),
       ),
     );
   };
+
   const save = () => {
-    if (memory) persist(memory);
+    if (memory) void persist(memory);
     setEditing(false);
   };
+
   const removeMedia = (index: number) => {
     if (!memory) return;
     const next = media.filter((_, itemIndex) => itemIndex !== index);
@@ -121,6 +131,7 @@ export default function MemoryPage() {
     else if (viewerIndex !== null && viewerIndex > index)
       setViewerIndex(viewerIndex - 1);
   };
+
   useEffect(() => {
     if (viewerIndex === null) return;
     const onKey = (event: KeyboardEvent) => {
@@ -137,7 +148,9 @@ export default function MemoryPage() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [viewerIndex, media.length]);
+
   const galleryClass = `media-grid media-grid--${Math.min(media.length, 5)}`;
+
   if (!memory)
     return (
       <main className="memory-page">
@@ -153,6 +166,7 @@ export default function MemoryPage() {
         </div>
       </main>
     );
+
   return (
     <main className="memory-page">
       <header className="memory-header">
@@ -243,9 +257,19 @@ export default function MemoryPage() {
             onChange={onChoose}
           />
           <div className="memory-art-caption">
-            {media.length ? "MAIN IMAGE" : "PLACEHOLDER IMAGE"}
-            <br />
-            <small>Click or drop photos and videos here</small>
+            {heroImage ? (
+              <>
+                <span className="caption-main">MAIN IMAGE</span>
+                <br />
+                <small>Click or drop photos and videos here to add more</small>
+              </>
+            ) : (
+              <>
+                <span className="caption-placeholder">PLACEHOLDER IMAGE</span>
+                <br />
+                <small>Click or drop photos and videos here</small>
+              </>
+            )}
           </div>
         </label>
       </section>

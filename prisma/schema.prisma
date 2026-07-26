@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Memory {
+  id          String   @id @default(cuid())
+  title       String
+  place       String   @default("")
+  date        String   @default("")
+  year        String   @default("")
+  lat         Float    @default(0)
+  lng         Float    @default(0)
+  color       String   @default("#ef766b")
+  kind        String   @default("memory")
+  image       String?               // cover media URL (/api/media/…) or colour hex
+  media       String[] @default([]) // list of /api/media/… URLs
+  favorite    Boolean  @default(false)
+  description String?
+  note        String?
+  symbol      String?  @default("pin") // pin, heart, star, flag, diamond, square
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MemoryThread {
+  id        String   @id @default(cuid())
+  memoryIds String[] // array of memory ids (keeps existing data shape)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Collection {
+  id        String   @id @default(cuid())
+  name      String
+  memoryIds String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Profile {
+  id         String   @id @default("singleton")
+  name       String   @default("")
+  avatarPath String?                // /api/media/… URL for avatar
+  updatedAt  DateTime @updatedAt
+}
