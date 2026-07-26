@@ -263,6 +263,14 @@ export function Map() {
   const [importing, setImporting] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
+  const [pendingImport, setPendingImport] = useState<{
+    cover: string;
+    media: string[];
+    title: string;
+    date: string;
+  } | null>(null);
+  const pendingImportRef = useRef(pendingImport);
+  const pendingMediaRef = useRef<string[] | null>(null);
   const selectedRef = useRef<string | null>(null);
   const addModeRef = useRef(false);
   useEffect(() => {
@@ -271,6 +279,9 @@ export function Map() {
   useEffect(() => {
     addModeRef.current = addMode;
   }, [addMode]);
+  useEffect(() => {
+    pendingImportRef.current = pendingImport;
+  }, [pendingImport]);
   useEffect(() => {
     setMemories(loadMemories());
     setThreads(loadThreads());
@@ -353,9 +364,10 @@ export function Map() {
         : new Date().getFullYear().toString(),
       image: form.cover || form.color,
       date: form.date || new Date().toISOString().slice(0, 10),
-      media: form.cover ? [form.cover] : [],
+      media: pendingMediaRef.current || (form.cover ? [form.cover] : []),
       favorite: false,
     };
+    pendingMediaRef.current = null;
     persist([...memories, memory]);
     setSelectedId(memory.id);
     setForm(null);
@@ -395,6 +407,21 @@ export function Map() {
         }
     : undefined;
   const handleMapClick = useCallback((lng: number, lat: number) => {
+    if (pendingImportRef.current) {
+      const data = pendingImportRef.current;
+      pendingMediaRef.current = data.media;
+      setForm({
+        ...emptyForm,
+        title: data.title,
+        date: data.date,
+        place: `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`,
+        lng: Number(lng.toFixed(5)),
+        lat: Number(lat.toFixed(5)),
+        cover: data.cover,
+      });
+      setPendingImport(null);
+      return;
+    }
     if (selectedRef.current && !addModeRef.current) {
       setSelectedId(null);
       return;
@@ -423,26 +450,29 @@ export function Map() {
         (entry) =>
           entry.metadata.lat !== undefined && entry.metadata.lng !== undefined,
       );
-      const lat = gps.length
-        ? gps.reduce((sum, entry) => sum + Number(entry.metadata.lat), 0) /
-          gps.length
-        : 0;
-      const lng = gps.length
-        ? gps.reduce((sum, entry) => sum + Number(entry.metadata.lng), 0) /
-          gps.length
-        : 0;
       const date =
         entries.map((entry) => entry.metadata.date).sort()[0] || today();
       const title =
         entries.length === 1
           ? entries[0].file.name.replace(/\.[^.]+$/, "")
           : `${entries[0].file.name.replace(/\.[^.]+$/, "")} + ${entries.length - 1} photos`;
+      if (!gps.length) {
+        setPendingImport({
+          cover: entries[0].data,
+          media: entries.map((entry) => entry.data),
+          title,
+          date,
+        });
+        return;
+      }
+      const lat = gps.reduce((sum, entry) => sum + Number(entry.metadata.lat), 0) /
+        gps.length;
+      const lng = gps.reduce((sum, entry) => sum + Number(entry.metadata.lng), 0) /
+        gps.length;
       const memory: Memory = {
         id: crypto.randomUUID(),
         title,
-        place: gps.length
-          ? `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`
-          : "Imported photos",
+        place: `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
         date,
         year: date.slice(0, 4),
         lng,
@@ -623,6 +653,13 @@ export function Map() {
           <button onClick={() => setAddMode(false)}>Cancel</button>
         </div>
       )}
+      {pendingImport && (
+        <div className="add-mode-hint">
+          <span className="add-mode-pulse" />
+          Click on the map to place your photos{" "}
+          <button onClick={() => setPendingImport(null)}>Cancel</button>
+        </div>
+      )}
       {dragActive && (
         <div className="map-drop-overlay">
           <div className="map-drop-card">
@@ -760,7 +797,7 @@ export function Map() {
                 <span className="eyebrow">NEW MEMORY</span>
                 <h2>Add a place to your story</h2>
               </div>
-              <button onClick={() => setForm(null)}>
+              <button onClick={() => { setForm(null); pendingMediaRef.current = null; }}>
                 <X size={17} />
               </button>
             </div>
