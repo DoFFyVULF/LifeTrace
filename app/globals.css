@@ -915,6 +915,204 @@ button {
 .favorite-toggle.is-favorite {
   color: #c53f4a;
 }
+
+/* ─── Details Panel — Memory Detail ────────────────────────── */
+
+.detail-cover {
+  position: relative;
+  height: 130px;
+  margin: 12px -22px 16px;
+  background-size: cover !important;
+  background-position: center !important;
+  background-color: #d5ddd6;
+}
+.detail-kind-badge {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  padding: 4px 7px;
+  border-radius: 5px;
+  background: rgba(244, 241, 235, 0.8);
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.detail-title {
+  margin: 0 0 14px !important;
+  font-size: 20px !important;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1.12;
+}
+.detail-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+.detail-meta-icon {
+  flex: 0 0 auto;
+  color: var(--ink);
+  opacity: 0.5;
+}
+.detail-meta-row--location {
+  color: var(--ink);
+  font-weight: 500;
+  font-size: 11px;
+}
+.detail-description {
+  margin: 14px 0 0;
+  color: #61716b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.detail-note-block {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: #ebe9e2;
+}
+.detail-note-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #8b9690;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.detail-note-text {
+  margin: 0;
+  color: #61716b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.detail-photos {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 16px;
+}
+.detail-photo {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  background-size: cover;
+  background-position: center;
+  background-color: #d5ddd6;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+.detail-photo:hover {
+  transform: scale(1.03);
+}
+.detail-photo--overlay {
+  cursor: pointer;
+}
+.detail-photo-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: rgba(36, 55, 53, 0.42);
+  backdrop-filter: blur(4px);
+  color: #f4f1eb;
+  transition: background 0.2s ease;
+}
+.detail-photo--overlay:hover .detail-photo-overlay {
+  background: rgba(36, 55, 53, 0.55);
+}
+.detail-photo-count {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.detail-divider {
+  margin: 20px 0 16px;
+  border-top: 1px solid var(--line);
+}
+.detail-actions {
+  display: grid;
+  gap: 6px;
+}
+.detail-action {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.detail-action:hover {
+  background: #e5e3db;
+  color: var(--ink);
+}
+.detail-action.is-favorite {
+  color: #c53f4a;
+}
+.detail-action--link {
+  color: var(--ink);
+}
+.detail-action--delete {
+  color: #b33e48;
+}
+.detail-action--delete:hover {
+  background: #f6d9d5;
+}
+
+/* ─── Details Panel — Empty state ──────────────────────────── */
+
+.details-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 100%;
+  min-height: 260px;
+  text-align: center;
+  color: #8b9690;
+}
+.details-empty-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  background: #e4e7e1;
+  color: #9aa59f;
+}
+.details-empty-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13px;
+}
+.details-empty-hint {
+  max-width: 180px;
+  color: #9aa39e;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
 .map-floating-tools {
   position: absolute;
   z-index: 4;
@@ -1343,159 +1541,8 @@ button {
   width: 34px;
   border-top: 2px solid #71817b;
 }
-.map-inspector {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  width: 234px;
-  overflow: hidden;
-  border: 1px solid rgba(132, 153, 145, 0.38);
-  border-radius: 9px;
-  background: rgba(244, 241, 235, 0.94);
-  box-shadow: 0 12px 28px rgba(56, 79, 70, 0.11);
-}
-.inspector-image {
-  position: relative;
-  height: 112px;
-  padding: 12px;
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent 0 13px,
-    rgba(255, 255, 255, 0.1) 13px 14px
-  );
-}
-.inspector-image span {
-  padding: 4px 6px;
-  border-radius: 4px;
-  background: rgba(244, 241, 235, 0.76);
-  color: var(--ink);
-  font-size: 9px;
-  text-transform: uppercase;
-}
-.inspector-image button {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  border: 0;
-  background: transparent;
-  color: rgba(244, 241, 235, 0.9);
-  font-size: 20px;
-}
-.inspector-body {
-  padding: 17px;
-}
-.inspector-body h2 {
-  margin: 7px 0 5px;
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 1.16;
-  letter-spacing: -0.04em;
-}
-.inspector-place,
-.inspector-date {
-  margin: 0;
-  color: var(--muted);
-  font-size: 10px;
-}
-.inspector-date {
-  margin-top: 4px;
-}
-.inspector-location {
-  margin: 3px 0 0;
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 500;
-}
-.inspector-rule {
-  margin: 16px 0 13px;
-  border-top: 1px solid var(--line);
-}
-.inspector-note {
-  margin: 0;
-  color: #61716b;
-  font-size: 11px;
-  line-height: 1.45;
-}
-.open-memory {
-  display: flex;
-  width: 100%;
-  align-items: center;
-  justify-content: space-between;
-  border: 0;
-  margin-top: 18px;
-  padding: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 700;
-}
-.open-memory span {
-  font-size: 16px;
-}
-.archive-notes-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.notes-menu {
-  display: grid;
-  place-items: center;
-  border: 0;
-  padding: 4px;
-  background: transparent;
-  color: var(--muted);
-}
-.notes-menu:hover {
-  color: var(--ink);
-}
-.details-panel h2 {
-  margin: 9px 0 23px;
-  font-size: 19px;
-  font-weight: 500;
-  letter-spacing: -0.04em;
-}
-.notes-stats {
-  display: grid;
-  gap: 16px;
-}
-.note-stat {
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  color: var(--coral);
-}
-.note-stat--mint {
-  color: #84a897;
-}
-.note-stat span {
-  color: var(--muted);
-  font-size: 11px;
-  line-height: 1.45;
-}
-.note-stat strong {
-  color: var(--ink);
-  font-size: 12px;
-}
-.notes-divider {
-  border-top: 1px solid var(--line);
-  margin: 27px 0 20px;
-}
-.details-panel > p {
-  color: #61716b;
-  font-size: 11px;
-  line-height: 1.5;
-}
-.view-connections {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 11px;
-  font-weight: 700;
-}
+/* Map inspector moved to DetailsPanel */
+/* Details panel title uses .detail-title directly; old archive styles removed */
 .timeline {
   height: 105px;
   border-top: 1px solid var(--line);
@@ -1559,14 +1606,6 @@ button {
   .main-grid {
     grid-template-columns: 210px minmax(0, 1fr) 250px;
   }
-  .map-inspector {
-    width: 210px;
-  }
-}
-.map-inspector {
-  z-index: 20;
-  background: rgba(244, 241, 235, 0.98);
-  isolation: isolate;
 }
 .memory-hero-drop {
   cursor: pointer;

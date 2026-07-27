@@ -41,6 +41,15 @@ export default function MemoryPage() {
         if (!res.ok) { setMemory(null); return; }
         const data: EditableMemory = await res.json();
         setMemory(data);
+        // Open viewer at photo=N if specified in query
+        const params = new URLSearchParams(window.location.search);
+        const photoParam = params.get("photo");
+        if (photoParam !== null) {
+          const index = parseInt(photoParam, 10);
+          if (!isNaN(index) && index >= 0 && data.media && index < data.media.length) {
+            setViewerIndex(index);
+          }
+        }
       } catch {
         setMemory(null);
       }

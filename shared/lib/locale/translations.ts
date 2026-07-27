@@ -54,6 +54,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     "details.connected.text": "Your {title} connects to {count} other {label}.",
     "details.connected.empty": "Connect memories to reveal the story between them.",
     "details.view.connections": "View connections",
+    "details.empty.title": "Your archive",
+    "details.empty.hint": "Click a memory on the map to see the full story",
+    "details.selected.memory": "SELECTED MEMORY",
+    "details.favorite": "Add to favorites",
+    "details.remove.favorite": "Remove from favorites",
+    "details.edit": "Edit",
+    "details.link": "Link",
+    "details.open": "Open details",
+    "details.delete": "Delete",
+    "details.note": "YOUR NOTE",
 
     // Timeline
     "timeline.title": "Timeline",
@@ -276,6 +286,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     "details.connected.text": "Ваша {title} связана с {count} {label}.",
     "details.connected.empty": "Свяжите воспоминания, чтобы открыть историю между ними.",
     "details.view.connections": "Показать связи",
+    "details.empty.title": "Ваш архив",
+    "details.empty.hint": "Нажмите на воспоминание на карте",
+    "details.selected.memory": "ВЫБРАННОЕ",
+    "details.favorite": "В избранное",
+    "details.remove.favorite": "Убрать из избранного",
+    "details.edit": "Редактировать",
+    "details.link": "Связать",
+    "details.open": "Открыть",
+    "details.delete": "Удалить",
+    "details.note": "ВАША ЗАМЕТКА",
 
     // Timeline
     "timeline.title": "Хронология",

@@ -1,13 +1,9 @@
 "use client";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Check,
-  Heart,
   Layers3,
   Link2,
-  Map as MapIcon,
-  Pencil,
   SlidersHorizontal,
   Trash2,
   Upload,
@@ -203,10 +199,14 @@ export function Map() {
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
   const selectedRef = useRef<string | null>(null);
+  const memoriesRef = useRef<Memory[]>(memories);
   const addModeRef = useRef(false);
   useEffect(() => {
     selectedRef.current = selectedId;
   }, [selectedId]);
+  useEffect(() => {
+    memoriesRef.current = memories;
+  }, [memories]);
   useEffect(() => {
     addModeRef.current = addMode;
   }, [addMode]);
@@ -263,6 +263,26 @@ export function Map() {
     window.addEventListener("life-trace-select", onSelectMemory);
     window.addEventListener("life-trace-collection", onCollection);
     window.addEventListener("life-trace-show-threads", onShowThreads);
+
+    const onEditMemory = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      const target = memoriesRef.current.find((m) => m.id === id);
+      if (target) startEdit(target);
+    };
+    const onDeleteMemory = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      const target = memoriesRef.current.find((m) => m.id === id);
+      if (target) setDeleteTarget(target);
+    };
+    const onLinkMemory = (event: Event) => {
+      const id = (event as CustomEvent<string>).detail;
+      setShowThreads(false);
+      setLinkingIds([id]);
+    };
+    window.addEventListener("life-trace-edit-memory", onEditMemory);
+    window.addEventListener("life-trace-delete-memory", onDeleteMemory);
+    window.addEventListener("life-trace-link-memory", onLinkMemory);
+
     return () => {
       window.removeEventListener("life-trace-year", onYear);
       window.removeEventListener("life-trace-search", onSearch);
@@ -271,6 +291,9 @@ export function Map() {
       window.removeEventListener("life-trace-select", onSelectMemory);
       window.removeEventListener("life-trace-collection", onCollection);
       window.removeEventListener("life-trace-show-threads", onShowThreads);
+      window.removeEventListener("life-trace-edit-memory", onEditMemory);
+      window.removeEventListener("life-trace-delete-memory", onDeleteMemory);
+      window.removeEventListener("life-trace-link-memory", onLinkMemory);
     };
   }, []);
 
@@ -457,18 +480,7 @@ export function Map() {
       ),
     [memories, activeYear, search, filterMode, collectionIds],
   );
-  const selected = memories.find((memory) => memory.id === selectedId) ?? null;
-  const inspectorStyle = selected
-    ? isMediaSrc(selected.image)
-      ? {
-          backgroundImage: `url(${selected.image})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }
-      : {
-          background: `linear-gradient(135deg, ${selected.image || selected.color}, #5d6d6b)`,
-        }
-    : undefined;
+  // selected is now handled by DetailsPanel
   const handleMapClick = useCallback(async (lng: number, lat: number) => {
     let city = "";
     let country = "";
@@ -499,6 +511,9 @@ export function Map() {
     }
     if (selectedRef.current && !addModeRef.current) {
       setSelectedId(null);
+      window.dispatchEvent(
+        new CustomEvent("life-trace-select", { detail: null }),
+      );
       return;
     }
     setAddMode(false);
@@ -636,31 +651,6 @@ export function Map() {
     setLinkingIds(null);
     setShowThreads(true);
   };
-  const toggleFavorite = async (id: string) => {
-    const target = memories.find((memory) => memory.id === id);
-    if (!target) return;
-    const nextFavorite = !target.favorite;
-    // Optimistic update
-    setLocalMemories(
-      memories.map((memory) =>
-        memory.id === id ? { ...memory, favorite: nextFavorite } : memory,
-      ),
-    );
-    try {
-      await fetch(`/api/memories/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ favorite: nextFavorite }),
-      });
-    } catch {
-      // Rollback on failure
-      setLocalMemories(
-        memories.map((memory) =>
-          memory.id === id ? { ...memory, favorite: !nextFavorite } : memory,
-        ),
-      );
-    }
-  };
   const deleteMemory = async () => {
     if (!deleteTarget) return;
     const targetId = deleteTarget.id;
@@ -739,6 +729,9 @@ export function Map() {
         selectedId={selectedId}
         onSelect={(memory) => {
           setSelectedId(memory.id);
+          window.dispatchEvent(
+            new CustomEvent("life-trace-select", { detail: memory.id }),
+          );
           if (linkingIds) toggleLinkPoint(memory.id);
         }}
         showGrid={showGrid}
@@ -778,6 +771,9 @@ export function Map() {
               onClick={() => {
                 setSelectedId(null);
                 setLinkingIds([]);
+                window.dispatchEvent(
+                  new CustomEvent("life-trace-select", { detail: null }),
+                );
               }}
             >
               {t("map.link.memories")}
@@ -853,78 +849,6 @@ export function Map() {
           </small>
         )}
       </div>
-      {selected && (
-        <aside className="map-inspector">
-          <div className="inspector-image" style={inspectorStyle}>
-            <span>{selected.kind}</span>
-            <button
-              aria-label={t("map.close.selected")}
-              onClick={() => setSelectedId(null)}
-            >
-              ×
-            </button>
-          </div>
-          <div className="inspector-body">
-            <span className="eyebrow">{t("map.selected.memory")}</span>
-            <h2>{selected.title}</h2>
-            <p className="inspector-place">{selected.place}</p>
-            {(selected.city || selected.country) && (
-              <p className="inspector-location">
-                {[selected.city, selected.country].filter(Boolean).join(", ")}
-              </p>
-            )}
-            <p className="inspector-date">{selected.date}</p>
-            <div className="inspector-rule" />
-            <button
-              className={`favorite-toggle ${selected.favorite ? "is-favorite" : ""}`}
-              onClick={() => toggleFavorite(selected.id)}
-            >
-              <Heart
-                size={14}
-                fill={selected.favorite ? "currentColor" : "none"}
-              />
-              {selected.favorite ? t("map.remove.favorite") : t("map.add.to.favorites")}
-            </button>
-            <button
-              className="open-memory"
-              onClick={() => startEdit(selected)}
-            >
-              <Pencil size={14} /> {t("map.edit")}
-            </button>
-            {linkingIds ? (
-              <button
-                className="open-memory"
-                onClick={() => toggleLinkPoint(selected.id)}
-              >
-                {linkingIds.includes(selected.id)
-                  ? t("map.remove.from.thread")
-                  : t("map.add.to.thread")}{" "}
-                <Link2 size={14} />
-              </button>
-            ) : (
-              <button
-                className="open-memory"
-                onClick={() => {
-                  setSelectedId(null);
-                  setShowThreads(false);
-                  setLinkingIds([selected.id]);
-                }}
-              >
-                {t("map.link.this")} <Link2 size={14} />
-              </button>
-            )}
-            <Link className="open-memory" href={`/memory/${selected.id}`}>
-              {t("map.open.memory")} <span>↗</span>
-            </Link>
-            <button
-              className="delete-memory-button"
-              onClick={() => setDeleteTarget(selected)}
-            >
-              <Trash2 size={14} /> {t("map.delete.memory")}
-            </button>
-          </div>
-        </aside>
-      )}
       {deleteTarget && (
         <div
           className="delete-modal"
