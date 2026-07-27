@@ -21,9 +21,10 @@ import type { Memory } from "@/features/map/components/MapCanvas";
 import { Switch } from "@/shared/components/ui/Switch";
 import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
+import { TagInput } from "@/shared/components/ui/TagInput";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
-type EditableMemory = Memory & { description?: string; note?: string };
+type EditableMemory = Memory & { description?: string; note?: string; tags?: string[] };
 const isVideo = (src: string) =>
   src.startsWith("data:video/") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
 
@@ -244,6 +245,22 @@ export default function MemoryPage() {
               <p className="memory-description">{memory.description || t("memory.default.description")}</p>
             )}
           </div>
+          {editing ? (
+            <div className="memory-tags-edit">
+              <span className="eyebrow">{t("tags.label")}</span>
+              <TagInput
+                tags={memory.tags ?? []}
+                onChange={(tags) => setMemory((current) => current ? { ...current, tags } : current)}
+                placeholder={t("tags.placeholder")}
+              />
+            </div>
+          ) : memory.tags && memory.tags.length > 0 ? (
+            <div className="tag-list">
+              {memory.tags.map((tag) => (
+                <span key={tag} className="tag-chip">{tag}</span>
+              ))}
+            </div>
+          ) : null}
           <div className="memory-meta">
             <span>
               <CalendarDays size={15} />

@@ -38,6 +38,7 @@ export type Memory = {
   symbol?: string;
   city?: string | null;
   country?: string | null;
+  tags?: string[];
 };
 export type MemoryThread = { id: string; memoryIds: string[] };
 

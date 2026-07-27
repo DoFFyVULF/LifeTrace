@@ -16,6 +16,7 @@ export type Memory = {
   favorite: boolean;
   description?: string | null;
   note?: string | null;
+  tags?: string[];
   createdAt?: string;
   updatedAt?: string;
 };

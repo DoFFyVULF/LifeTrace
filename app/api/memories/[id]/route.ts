@@ -49,7 +49,7 @@ export async function PATCH(
     const allowedFields = [
       "title", "place", "date", "year", "lat", "lng",
       "color", "kind", "image", "media", "favorite",
-      "description", "note", "symbol", "city", "country",
+      "description", "note", "symbol", "city", "country", "tags",
     ];
     for (const field of allowedFields) {
       if (field in body) {

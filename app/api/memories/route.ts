@@ -34,7 +34,8 @@ export async function GET(request: NextRequest) {
         (m) =>
           m.title.toLowerCase().includes(lowerSearch) ||
           m.place.toLowerCase().includes(lowerSearch) ||
-          (m.description ?? "").toLowerCase().includes(lowerSearch),
+          (m.description ?? "").toLowerCase().includes(lowerSearch) ||
+          (m.tags ?? []).some((tag) => tag.toLowerCase().includes(lowerSearch)),
       ),
     );
   }
@@ -66,6 +67,7 @@ export async function POST(request: NextRequest) {
       symbol = "pin",
       city = null,
       country = null,
+      tags = [],
     } = body;
 
     if (!title?.trim()) {
@@ -90,6 +92,7 @@ export async function POST(request: NextRequest) {
         symbol,
         city,
         country,
+        tags,
       },
     });
 

@@ -20,6 +20,7 @@ type HeaderMemory = {
   favorite?: boolean;
   city?: string;
   country?: string;
+  tags?: string[];
 };
 
 const formatDate = (dateStr: string, locale: string = "en-GB") => {
@@ -45,14 +46,13 @@ export function Header() {
   const searchWrapRef = useRef<HTMLDivElement>(null);
 
   const fetchMemories = useCallback(async () => {
-    if (!isProfile) return;
     try {
       const res = await fetch("/api/memories");
       if (res.ok) setMemories(await res.json());
     } catch {
       // silent
     }
-  }, [isProfile]);
+  }, []);
 
   useEffect(() => {
     void fetchMemories();
@@ -60,15 +60,14 @@ export function Header() {
 
   // Refresh on memory state changes
   useEffect(() => {
-    if (!isProfile) return;
     const onState = () => void fetchMemories();
     window.addEventListener("life-trace-memory-state", onState);
     return () => window.removeEventListener("life-trace-memory-state", onState);
-  }, [fetchMemories, isProfile]);
+  }, [fetchMemories]);
 
   // Close search dropdown on outside click
   useEffect(() => {
-    if (!isProfile || !searchQuery) return;
+    if (!searchQuery) return;
     const onClick = (e: MouseEvent) => {
       if (
         searchWrapRef.current &&
@@ -79,21 +78,29 @@ export function Header() {
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
-  }, [isProfile, searchQuery]);
+  }, [searchQuery]);
+
+  const matchesQuery = useCallback(
+    (m: HeaderMemory, q: string) =>
+      m.title.toLowerCase().includes(q) ||
+      m.place.toLowerCase().includes(q) ||
+      (m.city || "").toLowerCase().includes(q) ||
+      (m.country || "").toLowerCase().includes(q) ||
+      (m.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
+    [],
+  );
+
+  const totalMatchCount = useMemo(() => {
+    if (!searchQuery.trim()) return 0;
+    const q = searchQuery.toLowerCase();
+    return memories.filter((m) => matchesQuery(m, q)).length;
+  }, [searchQuery, memories, matchesQuery]);
 
   const searchResults = useMemo(() => {
-    if (!searchQuery.trim() || !isProfile) return [];
+    if (!searchQuery.trim()) return [];
     const q = searchQuery.toLowerCase();
-    return memories
-      .filter(
-        (m) =>
-          m.title.toLowerCase().includes(q) ||
-          m.place.toLowerCase().includes(q) ||
-          (m.city || "").toLowerCase().includes(q) ||
-          (m.country || "").toLowerCase().includes(q),
-      )
-      .slice(0, 8);
-  }, [searchQuery, memories, isProfile]);
+    return memories.filter((m) => matchesQuery(m, q)).slice(0, 5);
+  }, [searchQuery, memories, matchesQuery]);
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value);
@@ -131,8 +138,7 @@ export function Header() {
           />
         </label>
 
-        {isProfile && (
-          <AnimatePresence>
+        <AnimatePresence>
             {searchQuery && (
               <motion.div
                 key="header-search-results"
@@ -201,10 +207,18 @@ export function Header() {
                     {t("profile.search.empty")}
                   </span>
                 )}
+                {totalMatchCount > searchResults.length && (
+                  <Link
+                    href={`/search?q=${encodeURIComponent(searchQuery)}`}
+                    className="header-search-show-all"
+                    onClick={() => setSearchQuery("")}
+                  >
+                    {t("search.show.all")} ({totalMatchCount})
+                  </Link>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
-        )}
       </div>
 
       <div className="header-actions">

@@ -30,6 +30,7 @@ type DetailMemory = {
   note?: string;
   city?: string | null;
   country?: string | null;
+  tags?: string[];
   lat: number;
   lng: number;
 };
@@ -208,6 +209,15 @@ export function DetailsPanel() {
             {t("memory.your.note") || "YOUR NOTE"}
           </span>
           <p className="detail-note-text">{memory.note}</p>
+        </div>
+      )}
+
+      {/* Tags */}
+      {memory.tags && memory.tags.length > 0 && (
+        <div className="tag-list">
+          {memory.tags.map((tag) => (
+            <span key={tag} className="tag-chip">{tag}</span>
+          ))}
         </div>
       )}
 

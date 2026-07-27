@@ -224,6 +224,20 @@ export const translations: Record<Locale, Record<string, string>> = {
     "profile.search.placeholder": "Search your memories...",
     "profile.search.empty": "No memories match your search.",
 
+    // Tags
+    "tags.label": "TAGS",
+    "tags.placeholder": "Add a tag...",
+    "tags.add": "Press Enter to add tag",
+    "tags.type.to.search": "Type to search by tags",
+    "tag.matching": "tag",
+    "search.show.all": "Show all results",
+    "search.no.results": "No results found for",
+    "search.title": "Search results",
+
+    // Search page
+    "search.page.title": "Search",
+    "search.page.results": "results for",
+
     // Month archive
     "archive.back": "Back to profile",
     "archive.title": "MEMORY ARCHIVE",
@@ -455,6 +469,16 @@ export const translations: Record<Locale, Record<string, string>> = {
     // Profile search
     "profile.search.placeholder": "Поиск воспоминаний...",
     "profile.search.empty": "Ничего не найдено.",
+
+    // Tags
+    "tags.label": "ТЕГИ",
+    "tags.placeholder": "Добавить тег...",
+    "tags.add": "Нажмите Enter, чтобы добавить тег",
+    "tag.matching": "тег",
+    "search.show.all": "Показать все результаты",
+    "search.no.results": "Ничего не найдено по запросу",
+    "search.page.title": "Поиск",
+    "search.page.results": "результатов по запросу",
 
     // Month archive
     "archive.back": "Назад в профиль",

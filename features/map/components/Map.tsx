@@ -14,10 +14,16 @@ import { reverseGeocode } from "@/lib/geocode";
 import type { Memory, MemoryThread } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
 import { getRandomMemoryColor, mixColors, PIN_SYMBOLS, type PinSymbol } from "@/lib/colors";
+import { TagInput } from "@/shared/components/ui/TagInput";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 const today = () => new Date().toISOString().slice(0, 10);
-const emptyForm = {
+type FormData = {
+  title: string; place: string; date: string; kind: string;
+  color: string; lng: number; lat: number; cover: string;
+  symbol: PinSymbol; city: string; country: string; tags: string[];
+};
+const emptyForm: FormData = {
   title: "",
   place: "",
   date: today(),
@@ -29,6 +35,7 @@ const emptyForm = {
   symbol: "pin" as PinSymbol,
   city: "",
   country: "",
+  tags: [],
 };
 const toDateValue = (value: string | undefined, fallback: number) => {
   if (!value) return new Date(fallback).toISOString().slice(0, 10);
@@ -373,6 +380,7 @@ export function Map() {
       cover: isMediaSrc(memory.image) ? memory.image : "",
       city: memory.city || "",
       country: memory.country || "",
+      tags: memory.tags ?? [],
     });
   };
   const save = async () => {
@@ -405,6 +413,7 @@ export function Map() {
       favorite: false,
       city: city || null,
       country: country || null,
+      tags: form.tags,
     };
     pendingMediaRef.current = null;
     try {
@@ -451,6 +460,7 @@ export function Map() {
       cover: isMediaSrc(memory.image) ? memory.image : "",
       city: memory.city || "",
       country: memory.country || "",
+      tags: memory.tags ?? [],
     });
     setSelectedId(null);
   };
@@ -474,7 +484,7 @@ export function Map() {
             : filterMode === "all" || memory.favorite) &&
           (activeYear === "all" || memory.year === activeYear) &&
           (!search ||
-            `${memory.title} ${memory.place}`
+            `${memory.title} ${memory.place} ${memory.city ?? ""} ${memory.country ?? ""} ${(memory.tags ?? []).join(" ")}`
               .toLowerCase()
               .includes(search.toLowerCase())),
       ),
@@ -928,6 +938,14 @@ export function Map() {
             <div className="modal-coordinates">
               {form.lat}° lat · {form.lng}° lng
               {form.city || form.country ? ` · ${[form.city, form.country].filter(Boolean).join(", ")}` : ""}
+            </div>
+            <div className="modal-tags">
+              <span className="eyebrow">{t("tags.label")}</span>
+              <TagInput
+                tags={form.tags}
+                onChange={(tags) => setForm({ ...form, tags })}
+                placeholder={t("tags.placeholder")}
+              />
             </div>
             <div className="modal-color-picker">
               <span className="eyebrow">{t("map.form.color")}</span>
