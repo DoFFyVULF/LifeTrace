@@ -3457,11 +3457,12 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
-  margin-top: 4px;
+  margin-top: 5px;
 }
 .search-page-card-tags .tag-chip {
-  font-size: 9px;
-  padding: 2px 7px;
+  font-size: 8px;
+  padding: 1px 6px;
+  border-radius: 3px;
   background: #e6eae4;
   color: var(--ink);
   border: 1px solid rgba(36, 55, 53, 0.06);
