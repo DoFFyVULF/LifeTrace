@@ -431,6 +431,11 @@ export function ConstellationTimeline({
                         <small>
                           {memory.place || "Unplaced memory"}
                         </small>
+                        <small className="moment-coords">
+                          {memory.city || memory.country
+                            ? [memory.city, memory.country].filter(Boolean).join(", ")
+                            : `${memory.lat.toFixed(2)}° · ${memory.lng.toFixed(2)}°`}
+                        </small>
                       </span>
                       <time>
                         {new Date(memory.date).toLocaleDateString(

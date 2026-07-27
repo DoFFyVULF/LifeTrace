@@ -231,10 +231,9 @@ export default function MemoryPage() {
             </span>
             <span>
               <MapPin size={15} />
-              {memory.lat.toFixed(2)}° · {memory.lng.toFixed(2)}°
-              {(memory.city || memory.country) && (
-                <> · {[memory.city, memory.country].filter(Boolean).join(", ")}</>
-              )}
+              {memory.city || memory.country
+                ? [memory.city, memory.country].filter(Boolean).join(", ")
+                : `${memory.lat.toFixed(2)}° · ${memory.lng.toFixed(2)}°`}
             </span>
           </div>
         </div>

@@ -2760,6 +2760,10 @@ button {
   color: var(--muted);
   font-size: 11px;
 }
+.constellation-moment-body .moment-coords {
+  font-size: 10px;
+  color: #9ca3af;
+}
 .constellation-moment time {
   align-self: start;
   white-space: nowrap;
