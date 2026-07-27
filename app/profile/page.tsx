@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
   Camera,
@@ -22,9 +22,9 @@ type ProfileData = {
   avatarPath: string | null;
 };
 
-const formatDate = (dateStr: string) => {
+const formatDate = (dateStr: string, locale: string = "en-GB") => {
   try {
-    return new Date(dateStr).toLocaleDateString("en-GB", {
+    return new Date(dateStr).toLocaleDateString(locale === "ru" ? "ru" : "en-GB", {
       month: "long",
       day: "numeric",
       year: "numeric",
@@ -372,9 +372,9 @@ export default function ProfilePage() {
         <div className="profile-date-range">
           <CalendarDays size={14} />
           <span className="profile-date-range-text">
-            <strong>{formatDate(stats.firstDate)}</strong>
+            <strong>{formatDate(stats.firstDate, locale)}</strong>
             {" — "}
-            <strong>{formatDate(stats.lastDate!)}</strong>
+            <strong>{formatDate(stats.lastDate!, locale)}</strong>
           </span>
           <span className="profile-date-range-label">{t("profile.journey.so.far")}</span>
         </div>

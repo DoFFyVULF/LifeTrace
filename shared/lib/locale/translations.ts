@@ -210,6 +210,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "constellation.see.all": "See all {count} moments from {month}",
     "constellation.unplaced": "Unplaced memory",
 
+    // Profile search
+    "profile.search.placeholder": "Search your memories...",
+    "profile.search.empty": "No memories match your search.",
+
     // Month archive
     "archive.back": "Back to profile",
     "archive.title": "MEMORY ARCHIVE",
@@ -427,6 +431,10 @@ export const translations: Record<Locale, Record<string, string>> = {
     "constellation.empty": "В этой главе пока нет моментов.",
     "constellation.see.all": "Все {count} моментов за {month}",
     "constellation.unplaced": "Без места",
+
+    // Profile search
+    "profile.search.placeholder": "Поиск воспоминаний...",
+    "profile.search.empty": "Ничего не найдено.",
 
     // Month archive
     "archive.back": "Назад в профиль",
