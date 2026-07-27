@@ -103,6 +103,8 @@ export function MapCanvas({
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const dyingMarkersRef = useRef<maplibregl.Marker[]>([]);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSelectRef = useRef(onSelect);
   const [mapReady, setMapReady] = useState(false);
   const [mapVersion, setMapVersion] = useState(0);
@@ -173,6 +175,7 @@ export function MapCanvas({
       resizeObserver.disconnect();
       map.off("move", updateThreadOverlay);
       markersRef.current.forEach((marker) => marker.remove());
+      dyingMarkersRef.current.forEach((marker) => marker.remove());
       map.remove();
       mapRef.current = null;
     };
@@ -198,11 +201,35 @@ export function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    const clear = () => {
-      markersRef.current.forEach((marker) => marker.remove());
-      markersRef.current = [];
-    };
-    clear();
+
+    // Cancel pending removal of old markers from a previous cycle
+    if (fadeTimerRef.current !== null) {
+      clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+
+    // Move current markers to dying queue and fade them out
+    const oldMarkers = markersRef.current;
+    markersRef.current = [];
+
+    oldMarkers.forEach((marker) => {
+      const el = marker.getElement();
+      el.style.transition = "opacity 0.3s ease";
+      el.style.opacity = "0";
+    });
+
+    dyingMarkersRef.current.push(...oldMarkers);
+
+    // Schedule removal of dying markers after fade completes
+    if (dyingMarkersRef.current.length) {
+      fadeTimerRef.current = setTimeout(() => {
+        dyingMarkersRef.current.forEach((marker) => marker.remove());
+        dyingMarkersRef.current = [];
+        fadeTimerRef.current = null;
+      }, 350);
+    }
+
+    // Create new markers with fade-in
     memories.forEach((memory) => {
       const element = document.createElement("button");
       element.type = "button";
@@ -210,6 +237,7 @@ export function MapCanvas({
       element.className = `real-map-pin ${linkingIds.includes(memory.id) ? "is-linking" : ""} real-map-pin--${sym}${sym !== "pin" ? " real-map-pin--custom" : ""}`;
       element.style.setProperty("--pin-color", memory.color);
       element.dataset.memoryId = memory.id;
+      element.dataset.memoryYear = memory.year || "";
 
       // Render custom symbol based on memory.symbol
       if (sym === "pin") {
@@ -247,11 +275,21 @@ export function MapCanvas({
           duration: 900,
         });
       };
+      element.style.opacity = "0";
       markersRef.current.push(
         new maplibregl.Marker({ element, anchor: "center" })
           .setLngLat([memory.lng, memory.lat])
           .addTo(map),
       );
+    });
+
+    // Animate new markers in: opacity 0 → 1 with transition
+    requestAnimationFrame(() => {
+      markersRef.current.forEach((marker) => {
+        const el = marker.getElement();
+        el.style.transition = "opacity 0.35s ease";
+        el.style.opacity = "1";
+      });
     });
     const threadId = "memory-threads";
     const threadLines = visibleThreads.flatMap((thread) => {
@@ -317,7 +355,14 @@ export function MapCanvas({
       );
     if (map.getLayer(threadId))
       map.setPaintProperty(threadId, "line-opacity", showThreads ? 1 : 0);
-    return clear;
+    return () => {
+      if (fadeTimerRef.current !== null) {
+        clearTimeout(fadeTimerRef.current);
+        fadeTimerRef.current = null;
+      }
+      dyingMarkersRef.current.forEach((m) => m.remove());
+      dyingMarkersRef.current = [];
+    };
   }, [
     memories,
     threadMemories,

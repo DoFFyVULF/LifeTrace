@@ -379,7 +379,18 @@ button {
   cursor: pointer;
   transition:
     transform 0.2s ease,
-    box-shadow 0.2s ease;
+    box-shadow 0.2s ease,
+    opacity 0.3s ease;
+}
+@keyframes pin-fade-in {
+  from {
+    opacity: 0;
+    transform: rotate(-45deg) scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-45deg) scale(1);
+  }
 }
 .real-map-pin:after {
   position: absolute;
@@ -420,6 +431,20 @@ button {
   user-select: none;
   -webkit-user-drag: none;
   touch-action: manipulation;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.3s ease;
+}
+@keyframes pin-fade-in-custom {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .real-map-pin.real-map-pin--custom:after {
   display: none;
@@ -1564,6 +1589,7 @@ button {
   position: relative;
   height: 38px;
   margin-top: 10px;
+  touch-action: none;
 }
 .timeline-track:before {
   position: absolute;
@@ -1573,19 +1599,66 @@ button {
   border-top: 1px solid #c7d0c9;
   content: "";
 }
-.timeline-event {
+
+/* ── Draggable thumb ──────────────────────────────── */
+
+.timeline-thumb {
+  position: absolute;
+  top: 4px;
+  z-index: 3;
+  width: 18px;
+  height: 18px;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 50%;
+  background: var(--coral);
+  box-shadow:
+    0 0 0 2px #f0eee8,
+    0 2px 6px rgba(38, 56, 49, 0.32);
+  cursor: grab;
+  transition:
+    box-shadow 0.2s ease,
+    width 0.2s ease,
+    height 0.2s ease;
+  outline: none;
+}
+.timeline-thumb:hover,
+.timeline-thumb:focus-visible {
+  box-shadow:
+    0 0 0 3px #f0eee8,
+    0 0 0 5px rgba(239, 118, 107, 0.18),
+    0 2px 8px rgba(38, 56, 49, 0.28);
+}
+.timeline-thumb:active,
+.is-dragging .timeline-thumb {
+  width: 22px;
+  height: 22px;
+  top: 2px;
+  cursor: grabbing;
+  box-shadow:
+    0 0 0 3px #f0eee8,
+    0 0 0 6px rgba(239, 118, 107, 0.15),
+    0 3px 10px rgba(38, 56, 49, 0.25);
+}
+
+/* ── Year markers ─────────────────────────────────── */
+
+.timeline-marker {
   position: absolute;
   top: 6px;
   display: grid;
   justify-items: center;
   gap: 5px;
-  transform: translateX(-50%);
+  pointer-events: none;
   border: 0;
   background: transparent;
   color: var(--muted);
   font-size: 9px;
+  transition:
+    opacity 0.4s ease,
+    transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.timeline-event i {
+.timeline-marker i {
   z-index: 1;
   height: 13px;
   width: 13px;
@@ -1593,12 +1666,15 @@ button {
   border-radius: 50%;
   background: #b1c0b7;
   box-shadow: 0 0 0 1px #aabbb0;
+  transition:
+    background 0.35s ease,
+    box-shadow 0.35s ease;
 }
-.timeline-event.is-active {
+.timeline-marker.is-active {
   color: var(--ink);
   font-weight: 700;
 }
-.timeline-event.is-active i {
+.timeline-marker.is-active i {
   background: var(--coral);
   box-shadow: 0 0 0 1px var(--coral);
 }
@@ -3014,7 +3090,8 @@ button {
   .constellation-path-glow,
   .constellation-bg-star,
   .constellation-star,
-  .constellation-moment { animation: none; }
+  .constellation-moment,
+  .real-map-pin { animation: none; }
   .constellation-drawer,
   .constellation-drawer-inner,
   .constellation-star-shape,

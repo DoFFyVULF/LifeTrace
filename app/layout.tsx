@@ -5,6 +5,9 @@ import { ClientLayout } from "@/shared/components/layout/ClientLayout";
 export const metadata: Metadata = {
   title: "Life Trace",
   description: "App description",
+  icons: {
+    icon: '/Logo.ico'
+  }
 };
 
 export default function RootLayout({
