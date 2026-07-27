@@ -20,15 +20,14 @@ import {
 import type { Memory } from "@/features/map/components/MapCanvas";
 import { Switch } from "@/shared/components/ui/Switch";
 import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type EditableMemory = Memory & { description?: string; note?: string };
-const defaultDescription =
-  "A place, a feeling, and a few frames to return to when the story needs remembering.";
-const defaultNote = "Write what you want to remember about this place.";
 const isVideo = (src: string) =>
   src.startsWith("data:video/") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
 
 export default function MemoryPage() {
+  const { t } = useLocale();
   const { id } = useParams<{ id: string }>();
   const [memory, setMemory] = useState<EditableMemory | null>(null);
   const [editing, setEditing] = useState(false);
@@ -156,13 +155,13 @@ export default function MemoryPage() {
       <main className="memory-page">
         <header className="memory-header">
           <Link href="/" className="back-link">
-            <ArrowLeft size={16} /> Back to atlas
+            <ArrowLeft size={16} /> {t("memory.back")}
           </Link>
         </header>
         <div className="memory-not-found">
-          <h1>Memory not found</h1>
-          <p>Create a memory on the map first.</p>
-          <Link href="/">Return to map ↗</Link>
+          <h1>{t("memory.not.found")}</h1>
+          <p>{t("memory.not.found.hint")}</p>
+          <Link href="/">{t("memory.return.to.map")}</Link>
         </div>
       </main>
     );
@@ -171,15 +170,15 @@ export default function MemoryPage() {
     <main className="memory-page">
       <header className="memory-header">
         <Link href="/" className="back-link">
-          <ArrowLeft size={16} /> Back to atlas
+          <ArrowLeft size={16} /> {t("memory.back")}
         </Link>
-        <span className="memory-header-mark">LIFE TRACE / MEMORY</span>
+        <span className="memory-header-mark">{t("memory.header.mark")}</span>
         <div className="memory-header-actions">
           <button
             className="memory-share"
             onClick={() => navigator.clipboard?.writeText(window.location.href)}
           >
-            <Share2 size={15} /> Share
+            <Share2 size={15} /> {t("memory.share")}
           </button>
           <Switch checked={editing} onChange={(checked) => checked ? setEditing(true) : save()} />
         </div>
@@ -211,9 +210,9 @@ export default function MemoryPage() {
           </p>
           <div className={`memory-description-wrap ${editing ? "is-editing" : ""}`}>
             {editing ? (
-              <textarea className="memory-description-input" value={memory.description ?? defaultDescription} onChange={(event) => update("description", event.target.value)} />
+              <textarea className="memory-description-input" value={memory.description ?? t("memory.default.description")} onChange={(event) => update("description", event.target.value)} />
             ) : (
-              <p className="memory-description">{memory.description || defaultDescription}</p>
+              <p className="memory-description">{memory.description || t("memory.default.description")}</p>
             )}
           </div>
           <div className="memory-meta">
@@ -282,17 +281,17 @@ export default function MemoryPage() {
         <div>
           <div className="section-heading">
             <div>
-              <span className="eyebrow">VISUAL JOURNAL</span>
-              <h2>Moments from here</h2>
+              <span className="eyebrow">{t("memory.visual.journal")}</span>
+              <h2>{t("memory.moments.from.here")}</h2>
             </div>
             <div className="memory-edit-actions">
               {editing && (
                 <button className="add-media add-media--save" onClick={save}>
-                  <Save size={14} /> Save changes
+                  <Save size={14} /> {t("memory.save.changes")}
                 </button>
               )}
               <label className="add-media">
-                <Plus size={14} /> Add media
+                <Plus size={14} /> {t("memory.add.media")}
                 <input
                   className="media-input"
                   type="file"
@@ -313,16 +312,16 @@ export default function MemoryPage() {
                 {isVideo(src) ? (
                   <video src={src} muted />
                 ) : (
-                  <img src={src} alt={`${memory.title} moment ${index + 1}`} />
+                  <img src={src} alt={`${memory.title} ${t("memory.hero.item")}`} />
                 )}
                 <span className="media-slot-label">
                   {isVideo(src) ? (
                     <>
-                      <Play size={12} /> VIDEO
+                      <Play size={12} /> {t("memory.video")}
                     </>
                   ) : (
                     <>
-                      <ImageIcon size={12} /> PHOTO
+                      <ImageIcon size={12} /> {t("memory.photo")}
                     </>
                   )}{" "}
                   · {String(index + 1).padStart(2, "0")}
@@ -331,7 +330,7 @@ export default function MemoryPage() {
                   <span
                     className="media-delete"
                     role="button"
-                    aria-label={`Delete media ${index + 1}`}
+                    aria-label={`${t("memory.delete")} ${index + 1}`}
                     onClick={(event) => {
                       event.stopPropagation();
                       removeMedia(index);
@@ -345,20 +344,20 @@ export default function MemoryPage() {
             {!media.length && (
               <div className="media-empty">
                 <ImageIcon size={20} />
-                <span>No moments yet</span>
-                <small>Add photos or videos to build this memory.</small>
+                <span>{t("memory.no.moments")}</span>
+                <small>{t("memory.no.moments.hint")}</small>
               </div>
             )}
           </div>
         </div>
         <aside className="memory-notes">
-          <span className="eyebrow">YOUR NOTE</span>
+          <span className="eyebrow">{t("memory.your.note")}</span>
           <div className={`memory-note-wrap ${editing ? "is-editing" : ""}`}>
-            {editing ? <textarea className="memory-note-input" value={memory.note ?? defaultNote} onChange={(event) => update("note", event.target.value)} /> : <p>{memory.note || defaultNote}</p>}
+            {editing ? <textarea className="memory-note-input" value={memory.note ?? t("memory.default.note")} onChange={(event) => update("note", event.target.value)} /> : <p>{memory.note || t("memory.default.note")}</p>}
           </div>
           <div className="notes-rule" />
-          <span className="eyebrow">CONNECTED TO</span>
-          <Link href="/">View on map ↗</Link>
+          <span className="eyebrow">{t("memory.connected.to")}</span>
+          <Link href="/">{t("memory.view.on.map")}</Link>
         </aside>
       </section>
       {viewerIndex !== null && media[viewerIndex] && (
@@ -377,7 +376,7 @@ export default function MemoryPage() {
           </button>
           <button
             className="media-viewer-nav media-viewer-nav--prev"
-            aria-label="Previous media"
+            aria-label={t("memory.previous.media")}
             onClick={(event) => {
               event.stopPropagation();
               setViewerIndex((viewerIndex - 1 + media.length) % media.length);
@@ -400,7 +399,7 @@ export default function MemoryPage() {
           </div>
           <button
             className="media-viewer-nav media-viewer-nav--next"
-            aria-label="Next media"
+            aria-label={t("memory.next.media")}
             onClick={(event) => {
               event.stopPropagation();
               setViewerIndex((viewerIndex + 1) % media.length);

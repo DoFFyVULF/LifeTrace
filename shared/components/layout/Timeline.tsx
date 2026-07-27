@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type TimelineMemory = { id: string; date?: string; year?: string };
 
@@ -17,6 +18,7 @@ const extractYears = (memories: TimelineMemory[]) => {
 };
 
 export function Timeline() {
+  const { t } = useLocale();
   const [memories, setMemories] = useState<TimelineMemory[]>([]);
   const [active, setActive] = useState("all");
   const [mounted, setMounted] = useState(false);
@@ -57,9 +59,9 @@ export function Timeline() {
       <footer className="timeline">
         <div className="timeline-head">
           <span>
-            <strong>Timeline</strong> · your story over time
+            <strong>{t("timeline.title")}</strong> · {t("timeline.subtitle")}
           </span>
-          <span>memories</span>
+          <span>{t("timeline.memories")}</span>
         </div>
         <div className="timeline-track" />
       </footer>
@@ -75,12 +77,12 @@ export function Timeline() {
     <footer className="timeline">
       <div className="timeline-head">
         <span>
-          <strong>Timeline</strong> · your story over time
+          <strong>{t("timeline.title")}</strong> · {t("timeline.subtitle")}
         </span>
         <span>
           {active === "all"
-            ? `${memories.length} memories`
-            : `Memories from ${active}`}
+            ? `${memories.length} ${t("timeline.memories")}`
+            : t("timeline.from", { year: active })}
         </span>
       </div>
       <div className="timeline-track">
@@ -92,7 +94,7 @@ export function Timeline() {
             onClick={() => choose(year)}
           >
             <i />
-            {year === "all" ? "All" : year}
+            {year === "all" ? t("timeline.all") : year}
           </button>
         ))}
       </div>

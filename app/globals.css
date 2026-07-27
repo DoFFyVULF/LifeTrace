@@ -2956,3 +2956,102 @@ button {
   max-width: 300px !important;
   font-size: 28px !important;
 }
+
+/* Settings modal */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(36, 55, 53, 0.5);
+  backdrop-filter: blur(2px);
+  animation: settings-overlay-in 0.2s ease;
+}
+.settings-modal {
+  width: min(400px, 90vw);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 20px 60px rgba(36, 55, 53, 0.2);
+  animation: settings-modal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.settings-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 0;
+}
+.settings-modal-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+}
+.settings-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.settings-close:hover {
+  background: var(--line);
+  color: var(--ink);
+}
+.settings-modal-body {
+  padding: 24px 22px 28px;
+}
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.settings-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.settings-language-options {
+  display: flex;
+  gap: 8px;
+}
+.settings-language-btn {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.settings-language-btn:hover {
+  border-color: #c7d1ca;
+  background: #eeece6;
+}
+.settings-language-btn.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 500;
+}
+
+@keyframes settings-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes settings-modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(8px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}

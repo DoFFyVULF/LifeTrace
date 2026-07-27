@@ -2,6 +2,7 @@
 import { isMediaSrc } from "@/lib/media";
 import { Compass, Heart, MapPinned, Star, Clock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type ArchiveMemory = {
   id: string;
@@ -33,6 +34,7 @@ function addRecentId(id: string) {
 }
 
 export function Sidebar() {
+  const { t } = useLocale();
   const [memories, setMemories] = useState<ArchiveMemory[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -127,22 +129,22 @@ export function Sidebar() {
 
   return (
     <aside className="sidebar">
-      <span className="panel-label">Your archive</span>
+      <span className="panel-label">{t("sidebar.your.archive")}</span>
       <h2>
-        Recent <small className="sidebar-count">{memories.length} total</small>
+        {t("sidebar.recent")} <small className="sidebar-count">{memories.length} {t("sidebar.total")}</small>
       </h2>
       <nav className="filter-tabs">
         <button
           className={!showFavoritesOnly ? "is-active" : ""}
           onClick={() => chooseFilter(false)}
         >
-          <Clock size={12} /> Recent
+          <Clock size={12} /> {t("sidebar.recent")}
         </button>
         <button
           className={showFavoritesOnly ? "is-active" : ""}
           onClick={() => chooseFilter(true)}
         >
-          <Heart size={12} /> Favorites{" "}
+          <Heart size={12} /> {t("sidebar.favorites")}{" "}
           <small>{memories.filter((memory) => memory.favorite).length}</small>
         </button>
       </nav>
@@ -175,7 +177,7 @@ export function Sidebar() {
                 <i style={{ background: memory.color }} />
                 <span>
                   <strong>{memory.title}</strong>
-                  <small>{memory.place || "Unplaced memory"}</small>
+                  <small>{memory.place || t("sidebar.unplaced")}</small>
                 </span>
                 <time>{new Date(memory.date).getFullYear()}</time>
               </button>
@@ -187,24 +189,24 @@ export function Sidebar() {
           <MapPinned size={22} />
           <p>
             {showFavoritesOnly
-              ? "No favorites yet."
-              : "Your archive is ready for its first story."}
+              ? t("sidebar.no.favorites")
+              : t("sidebar.empty.recent")}
           </p>
           <small>
             {showFavoritesOnly
-              ? "Mark a memory with the heart to keep it close."
-              : "Add your first memory on the map to get started."}
+              ? t("sidebar.no.favorites.hint")
+              : t("sidebar.empty.recent.hint")}
           </small>
         </div>
       )}
       <div className="sidebar-links">
         <button onClick={() => chooseFilter(!showFavoritesOnly)}>
           <Heart size={14} />
-          {showFavoritesOnly ? "Show recent" : "Favorites only"}
+          {showFavoritesOnly ? t("sidebar.show.recent") : t("sidebar.favorites.only")}
         </button>
         <button onClick={() => setCollectionOpen((open) => !open)}>
           <Compass size={14} />
-          Collections <small>{collections.length}</small>
+          {t("sidebar.collections")} <small>{collections.length}</small>
         </button>
         {collections.map((collection) => (
           <button
@@ -220,20 +222,20 @@ export function Sidebar() {
           className="new-collection-link"
           onClick={() => setCollectionOpen(true)}
         >
-          + New collection
+          {t("sidebar.new.collection")}
         </button>
         <span>
           <Star size={14} />
-          {shown.length} {showFavoritesOnly ? "favorites" : "memories"}
+          {shown.length} {showFavoritesOnly ? t("sidebar.favorites.count") : t("sidebar.memories.count")}
         </span>
       </div>
       {collectionOpen && (
-        <div className="collection-modal" role="dialog" aria-modal="true" aria-label="Create collection" onMouseDown={(event) => { if (event.target === event.currentTarget) setCollectionOpen(false); }}>
+        <div className="collection-modal" role="dialog" aria-modal="true" aria-label={t("collection.create.modal")} onMouseDown={(event) => { if (event.target === event.currentTarget) setCollectionOpen(false); }}>
           <div className="collection-modal-card">
-            <div className="collection-modal-head"><div><span className="panel-label">NEW COLLECTION</span><h3>Gather a chapter</h3><p>Bring a few memories together and give the story a name.</p></div><button className="collection-modal-close" onClick={() => setCollectionOpen(false)} aria-label="Close collection dialog">×</button></div>
-            <input className="collection-name-input" autoFocus placeholder="Collection name" value={collectionName} onChange={(event) => setCollectionName(event.target.value)} />
-            <div className="collection-picker">{memories.map((memory) => <label key={memory.id}><input type="checkbox" checked={collectionSelection.includes(memory.id)} onChange={() => setCollectionSelection((selected) => selected.includes(memory.id) ? selected.filter((id) => id !== memory.id) : [...selected, memory.id])} /><span className="collection-choice-dot" style={{ background: memory.color }} /><span>{memory.title}<small>{memory.place || "Unplaced memory"}</small></span></label>)}</div>
-            <div className="collection-modal-foot"><span>{collectionSelection.length} memories selected</span><button className="collection-save" onClick={createCollection} disabled={!collectionName.trim() || !collectionSelection.length}>Create collection</button></div>
+            <div className="collection-modal-head"><div><span className="panel-label">{t("collection.title")}</span><h3>{t("collection.heading")}</h3><p>{t("collection.desc")}</p></div><button className="collection-modal-close" onClick={() => setCollectionOpen(false)} aria-label={t("collection.close")}>×</button></div>
+            <input className="collection-name-input" autoFocus placeholder={t("collection.name.placeholder")} value={collectionName} onChange={(event) => setCollectionName(event.target.value)} />
+            <div className="collection-picker">{memories.map((memory) => <label key={memory.id}><input type="checkbox" checked={collectionSelection.includes(memory.id)} onChange={() => setCollectionSelection((selected) => selected.includes(memory.id) ? selected.filter((id) => id !== memory.id) : [...selected, memory.id])} /><span className="collection-choice-dot" style={{ background: memory.color }} /><span>{memory.title}<small>{memory.place || t("sidebar.unplaced")}</small></span></label>)}</div>
+            <div className="collection-modal-foot"><span>{collectionSelection.length} {t("collection.selected")}</span><button className="collection-save" onClick={createCollection} disabled={!collectionName.trim() || !collectionSelection.length}>{t("collection.create")}</button></div>
           </div>
         </div>
       )}

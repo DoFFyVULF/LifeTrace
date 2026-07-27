@@ -2,6 +2,7 @@
 
 import { CalendarDays, Image, Link2, MoreHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type NoteMemory = {
   id: string;
@@ -13,6 +14,7 @@ type NoteMemory = {
 type Thread = { id: string; memoryIds: string[] };
 
 export function DetailsPanel() {
+  const { t, locale } = useLocale();
   const [memories, setMemories] = useState<NoteMemory[]>([]);
   const [threads, setThreads] = useState<Thread[]>([]);
 
@@ -53,17 +55,17 @@ export function DetailsPanel() {
   return (
     <aside className="details-panel">
       <div className="archive-notes-head">
-        <span className="panel-label">Archive notes</span>
+        <span className="panel-label">{t("details.archive.notes")}</span>
         <button aria-label="Archive notes menu" className="notes-menu">
           <MoreHorizontal size={17} />
         </button>
       </div>
-      <h2>At a glance</h2>
+      <h2>{t("details.at.a.glance")}</h2>
       <div className="notes-stats">
         <div className="note-stat">
           <CalendarDays size={16} />
           <span>
-            Last memory
+            {t("details.last.memory")}
             <br />
             <strong>
               {latest
@@ -72,28 +74,30 @@ export function DetailsPanel() {
                     month: "long",
                     year: "numeric",
                   })
-                : "No memories yet"}
+                : t("details.no.memories")}
             </strong>
           </span>
         </div>
         <div className="note-stat note-stat--mint">
           <Image size={16} />
           <span>
-            Photos collected
+            {t("details.photos.collected")}
             <br />
-            <strong>{moments} moments</strong>
+            <strong>{moments} {t("details.photos.value")}</strong>
           </span>
         </div>
       </div>
       <div className="notes-divider" />
-      <span className="panel-label">Connected story</span>
+      <span className="panel-label">{t("details.connected.story")}</span>
       <p>
         {connected
-          ? `Your ${latest?.title || "story"} connects to ${connected} other memor${connected === 1 ? "y" : "ies"}.`
-          : "Connect memories to reveal the story between them."}
+          ? locale === "ru"
+            ? `Ваша ${latest?.title || "история"} связана с ${connected} другим${connected > 1 ? "и" : ""} воспоминани${connected > 1 ? "ями" : "ем"}.`
+            : `${latest?.title || "Story"} connects to ${connected} other ${connected === 1 ? "memory" : "memories"}.`
+          : t("details.connected.empty")}
       </p>
       <button className="view-connections" onClick={viewConnections}>
-        <Link2 size={14} /> View connections
+        <Link2 size={14} /> {t("details.view.connections")}
       </button>
     </aside>
   );

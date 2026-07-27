@@ -18,6 +18,7 @@ import { reverseGeocode } from "@/lib/geocode";
 import type { Memory, MemoryThread } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
 import { getRandomMemoryColor, mixColors, PIN_SYMBOLS, type PinSymbol } from "@/lib/colors";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyForm = {
@@ -174,6 +175,7 @@ const isSupportedPhoto = (file: File) =>
   /\.(heic|heif|jpg|jpeg|png|webp|gif|avif|bmp|tif|tiff)$/i.test(file.name);
 
 export function Map() {
+  const { t } = useLocale();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showThreads, setShowThreads] = useState(false);
@@ -363,7 +365,7 @@ export function Map() {
       setForm(null);
       setEditingId(null);
     } catch {
-      setImportToast("Не удалось сохранить воспоминание.");
+      setImportToast(t("map.save.failed"));
     }
   };
   const startEdit = (memory: Memory) => {
@@ -391,7 +393,7 @@ export function Map() {
       const url = await uploadMedia(blob, name);
       setForm((current) => (current ? { ...current, cover: url } : current));
     } catch {
-      setImportToast("Не удалось загрузить изображение.");
+      setImportToast(t("map.image.failed"));
     }
   };
   const visible = useMemo(
@@ -460,7 +462,7 @@ export function Map() {
     const photos = files.filter(isSupportedPhoto);
     if (!photos.length) {
       setImportToast(
-        "Перенесите изображение: JPG, PNG, WebP, GIF, AVIF или HEIC",
+        t("map.import.hint"),
       );
       return;
     }
@@ -524,13 +526,13 @@ export function Map() {
         setLocalMemories([...memories, created]);
         setSelectedId(created.id);
         setImportToast(
-          `${entries.length} ${entries.length === 1 ? "photo" : "photos"} added as a memory`,
+          `${entries.length} ${entries.length === 1 ? t("map.photo.added") : t("map.photos.added")}`,
         );
       } else {
         throw new Error("Create failed");
       }
     } catch {
-      setImportToast("Не удалось сохранить воспоминание.");
+      setImportToast(t("map.save.failed"));
     } finally {
       setImporting(false);
     }
@@ -630,7 +632,7 @@ export function Map() {
     setLocalThreads(nextThreads);
     setSelectedId(null);
     setDeleteTarget(null);
-    setImportToast(`“${deleteTarget.title}” deleted`);
+    setImportToast(t("map.deleted.toast", { title: deleteTarget.title }));
     try {
       await fetch(`/api/memories/${targetId}`, { method: "DELETE" });
     } catch {
@@ -710,19 +712,19 @@ export function Map() {
                 disabled={linkingIds.length < 2}
               >
                 <Check size={14} />
-                Save thread
+                {t("map.save.thread")}
               </button>
-              <button onClick={() => setLinkingIds(null)}>Exit links</button>
+              <button onClick={() => setLinkingIds(null)}>{t("map.exit.links")}</button>
             </>
           ) : showThreads ? (
             <button className="is-active" onClick={() => setShowThreads(false)}>
               <Link2 size={14} />
-              Threads <span className="route-badge">{threads.length}</span>
+              {t("map.threads")} <span className="route-badge">{threads.length}</span>
             </button>
           ) : (
             <button onClick={() => setShowThreads(true)}>
               <Link2 size={14} />
-              Threads <span className="route-badge">{threads.length}</span>
+              {t("map.threads")} <span className="route-badge">{threads.length}</span>
             </button>
           )}{" "}
           {!linkingIds && !showThreads && (
@@ -732,54 +734,54 @@ export function Map() {
                 setLinkingIds([]);
               }}
             >
-              Link memories
+              {t("map.link.memories")}
             </button>
           )}
         </div>
         <button className="map-customize" onClick={() => setVivid(!vivid)}>
           <SlidersHorizontal size={15} />
-          Customize
+          {t("map.customize")}
         </button>
       </div>
       <div className="map-floating-tools">
         <button
-          title="Toggle grid"
+          title={t("map.toggle.grid")}
           className={showGrid ? "is-active" : ""}
           onClick={() => setShowGrid(!showGrid)}
         >
           <Layers3 size={17} />
         </button>
-        <button title="Add memory" onClick={() => openCreate()}>
+        <button title={t("map.add.memory.title")} onClick={() => openCreate()}>
           <Upload size={16} />
         </button>
       </div>
       {addMode && (
         <div className="add-mode-hint">
           <span className="add-mode-pulse" />
-          Click anywhere on the map to place a memory{" "}
-          <button onClick={() => setAddMode(false)}>Cancel</button>
+          {t("map.click.to.place")}{" "}
+          <button onClick={() => setAddMode(false)}>{t("map.cancel")}</button>
         </div>
       )}
       {pendingImport && (
         <div className="add-mode-hint">
           <span className="add-mode-pulse" />
-          Click on the map to place your photos{" "}
-          <button onClick={() => setPendingImport(null)}>Cancel</button>
+          {t("map.click.to.place.photos")}{" "}
+          <button onClick={() => setPendingImport(null)}>{t("map.cancel")}</button>
         </div>
       )}
       {dragActive && (
         <div className="map-drop-overlay">
           <div className="map-drop-card">
             <Upload size={27} />
-            <strong>Drop photos to create a memory</strong>
-            <span>EXIF date and location will be collected automatically</span>
+            <strong>{t("map.drop.photos")}</strong>
+            <span>{t("map.drop.hint")}</span>
           </div>
         </div>
       )}
       {importing && (
         <div className="map-import-toast">
           <span className="import-spinner" />
-          Reading photo metadata…
+          {t("map.reading.metadata")}
         </div>
       )}
       {importToast && !importing && (
@@ -790,18 +792,18 @@ export function Map() {
       {linkingIds && (
         <div className="link-mode-hint">
           <Link2 size={15} />
-          <span>Select at least two memories, then save the thread</span>
-          <strong>{linkingIds.length} selected</strong>
-          <button onClick={() => setLinkingIds(null)}>Cancel</button>
+          <span>{t("map.link.hint")}</span>
+          <strong>{linkingIds.length} {t("map.link.selected")}</strong>
+          <button onClick={() => setLinkingIds(null)}>{t("map.cancel")}</button>
         </div>
       )}
       <div className="map-context">
-        <span className="context-kicker">YOUR ARCHIVE</span>
-        <strong>{activeYear === "all" ? "Everywhere" : activeYear}</strong>
-        <span className="context-count">{visible.length} memories</span>
+        <span className="context-kicker">{t("map.your.archive")}</span>
+        <strong>{activeYear === "all" ? t("map.everywhere") : activeYear}</strong>
+        <span className="context-count">{visible.length} {t("map.memories")}</span>
         {!memories.length && (
           <small className="empty-map-hint">
-            Click anywhere or drop a photo to add your first memory.
+            {t("map.empty.hint")}
           </small>
         )}
       </div>
@@ -810,14 +812,14 @@ export function Map() {
           <div className="inspector-image" style={inspectorStyle}>
             <span>{selected.kind}</span>
             <button
-              aria-label="Close selected memory"
+              aria-label={t("map.close.selected")}
               onClick={() => setSelectedId(null)}
             >
               ×
             </button>
           </div>
           <div className="inspector-body">
-            <span className="eyebrow">SELECTED MEMORY</span>
+            <span className="eyebrow">{t("map.selected.memory")}</span>
             <h2>{selected.title}</h2>
             <p className="inspector-place">{selected.place}</p>
             {(selected.city || selected.country) && (
@@ -835,13 +837,13 @@ export function Map() {
                 size={14}
                 fill={selected.favorite ? "currentColor" : "none"}
               />
-              {selected.favorite ? "Remove favorite" : "Add to favorites"}
+              {selected.favorite ? t("map.remove.favorite") : t("map.add.to.favorites")}
             </button>
             <button
               className="open-memory"
               onClick={() => startEdit(selected)}
             >
-              <Pencil size={14} /> Edit
+              <Pencil size={14} /> {t("map.edit")}
             </button>
             {linkingIds ? (
               <button
@@ -849,8 +851,8 @@ export function Map() {
                 onClick={() => toggleLinkPoint(selected.id)}
               >
                 {linkingIds.includes(selected.id)
-                  ? "Remove from thread"
-                  : "Add to thread"}{" "}
+                  ? t("map.remove.from.thread")
+                  : t("map.add.to.thread")}{" "}
                 <Link2 size={14} />
               </button>
             ) : (
@@ -862,17 +864,17 @@ export function Map() {
                   setLinkingIds([selected.id]);
                 }}
               >
-                Link this memory <Link2 size={14} />
+                {t("map.link.this")} <Link2 size={14} />
               </button>
             )}
             <Link className="open-memory" href={`/memory/${selected.id}`}>
-              Open memory <span>↗</span>
+              {t("map.open.memory")} <span>↗</span>
             </Link>
             <button
               className="delete-memory-button"
               onClick={() => setDeleteTarget(selected)}
             >
-              <Trash2 size={14} /> Delete memory
+              <Trash2 size={14} /> {t("map.delete.memory")}
             </button>
           </div>
         </aside>
@@ -882,7 +884,7 @@ export function Map() {
           className="delete-modal"
           role="dialog"
           aria-modal="true"
-          aria-label="Delete memory confirmation"
+          aria-label={t("map.delete.confirm.dialog")}
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setDeleteTarget(null);
           }}
@@ -891,17 +893,15 @@ export function Map() {
             <div className="delete-modal-icon">
               <Trash2 size={20} />
             </div>
-            <span className="eyebrow">DELETE MEMORY</span>
-            <h2>Remove “{deleteTarget.title}”?</h2>
+            <span className="eyebrow">{t("map.delete.title")}</span>
+            <h2>{t("map.delete.confirm", { title: deleteTarget.title })}</h2>
             <p>
-              This will remove the memory and its{" "}
-              {deleteTarget.media?.length || 0} media items. Connected threads
-              will be updated.
+              {t("map.delete.desc", { count: deleteTarget.media?.length || 0 })}
             </p>
             <div className="delete-modal-actions">
-              <button onClick={() => setDeleteTarget(null)}>Keep memory</button>
+              <button onClick={() => setDeleteTarget(null)}>{t("map.delete.keep")}</button>
               <button className="delete-confirm" onClick={deleteMemory}>
-                Delete permanently
+                {t("map.delete.permanently")}
               </button>
             </div>
           </div>
@@ -912,8 +912,8 @@ export function Map() {
           <div className="memory-modal-card">
             <div className="modal-head">
               <div>
-                <span className="eyebrow">{editingId ? "EDIT MEMORY" : "NEW MEMORY"}</span>
-                <h2>{editingId ? "Edit your memory" : "Add a place to your story"}</h2>
+                <span className="eyebrow">{editingId ? t("map.form.edit") : t("map.form.new")}</span>
+                <h2>{editingId ? t("map.form.edit.title") : t("map.form.new.title")}</h2>
               </div>
               <button onClick={() => { setForm(null); setEditingId(null); pendingMediaRef.current = null; }}>
                 <X size={17} />
@@ -935,18 +935,18 @@ export function Map() {
               {!form.cover && (
                 <>
                   <Upload size={18} />
-                  <span>Choose cover image</span>
+                  <span>{t("map.form.cover")}</span>
                 </>
               )}
             </label>
             <input
               autoFocus
-              placeholder="Title"
+              placeholder={t("map.form.title.placeholder")}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
             />
             <input
-              placeholder="Place"
+              placeholder={t("map.form.place.placeholder")}
               value={form.place}
               onChange={(e) => setForm({ ...form, place: e.target.value })}
             />
@@ -960,7 +960,7 @@ export function Map() {
               {form.city || form.country ? ` · ${[form.city, form.country].filter(Boolean).join(", ")}` : ""}
             </div>
             <div className="modal-color-picker">
-              <span className="eyebrow">COLOR</span>
+              <span className="eyebrow">{t("map.form.color")}</span>
               <div className="color-swatches">
                 {PIN_SYMBOLS.map((s) => s.id === "pin" ? null : s.id).filter(Boolean).map((id) => null)}
                 {["#ef766b", "#c6535b", "#8b6bb3", "#3f8290", "#b47b3f", "#668d68", "#9a6480", "#d4a574", "#5a9bd8", "#c472b9"].map((color) => (
@@ -977,7 +977,7 @@ export function Map() {
               </div>
             </div>
             <div className="modal-symbol-picker">
-              <span className="eyebrow">SYMBOL</span>
+              <span className="eyebrow">{t("map.form.symbol")}</span>
               <div className="symbol-grid">
                 {PIN_SYMBOLS.map((s) => (
                   <button
@@ -995,7 +995,7 @@ export function Map() {
               </div>
             </div>
             <button className="modal-submit" onClick={save}>
-              {editingId ? "Save changes" : "Save memory"}
+              {editingId ? t("map.form.save.changes") : t("map.form.save.memory")}
             </button>
           </div>
         </div>

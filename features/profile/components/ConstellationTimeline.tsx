@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { isMediaSrc } from "@/lib/media";
 import type { Memory } from "@/features/map/components/MapCanvas";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 // ─── helpers ────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ export function ConstellationTimeline({
   years,
 }: Props) {
   const router = useRouter();
+  const { t } = useLocale();
   const canvasRef = useRef<HTMLDivElement>(null);
   const [clientReady, setClientReady] = useState(false);
 
@@ -216,7 +218,7 @@ export function ConstellationTimeline({
       <div className="constellation-head">
         <div>
           <span className="eyebrow">YOUR YEAR, IN CONSTELLATIONS</span>
-          <h2 id="constellation-title">The shape of {selectedYear}</h2>
+          <h2 id="constellation-title">{t("constellation.title", { year: selectedYear })}</h2>
         </div>
         <div
           className="constellation-year"
@@ -429,7 +431,7 @@ export function ConstellationTimeline({
                       <span className="constellation-moment-body">
                         <strong>{memory.title}</strong>
                         <small>
-                          {memory.place || "Unplaced memory"}
+                          {memory.place || t("constellation.unplaced")}
                         </small>
                         <small className="moment-coords">
                           {memory.city || memory.country
@@ -455,15 +457,14 @@ export function ConstellationTimeline({
                       )
                     }
                   >
-                    See all {selectedMemories.length} moments from{" "}
-                    {MONTH_DATA[selectedMonth].label}{" "}
+                    {t("constellation.see.all", { count: selectedMemories.length, month: MONTH_DATA[selectedMonth].label })}
                     <ChevronRight size={15} />
                   </button>
                 )}
               </>
             ) : (
               <p className="constellation-empty">
-                No moments in this chapter yet.
+                {t("constellation.empty")}
               </p>
             )}
           </div>

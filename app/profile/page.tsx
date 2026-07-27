@@ -14,6 +14,7 @@ import type { Memory, MemoryThread } from "@/features/map/components/MapCanvas";
 import { ProfileLayout } from "@/shared/components/layout/ProfileLayout";
 import { prepareUpload, uploadMedia } from "@/lib/media";
 import { ConstellationTimeline } from "@/features/profile/components/ConstellationTimeline";
+import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type ProfileData = {
   name: string;
@@ -32,23 +33,24 @@ const formatDate = (dateStr: string) => {
   }
 };
 
-const RANK = [
-  { min: 0, label: "Beginner explorer", icon: "🌱" },
-  { min: 1, label: "Storyteller", icon: "📖" },
-  { min: 5, label: "Memory keeper", icon: "🗂️" },
-  { min: 20, label: "Archive master", icon: "🏛️" },
-  { min: 50, label: "Chronicler", icon: "📜" },
+const RANK_KEY = [
+  { min: 0, key: "profile.rank.beginner", icon: "🌱" },
+  { min: 1, key: "profile.rank.storyteller", icon: "📖" },
+  { min: 5, key: "profile.rank.keeper", icon: "🗂️" },
+  { min: 20, key: "profile.rank.master", icon: "🏛️" },
+  { min: 50, key: "profile.rank.chronicler", icon: "📜" },
 ] as const;
 
-function getRank(count: number) {
-  let rank: (typeof RANK)[number] = RANK[0];
-  for (const r of RANK) {
+function getRankT(count: number) {
+  let rank: (typeof RANK_KEY)[number] = RANK_KEY[0];
+  for (const r of RANK_KEY) {
     if (count >= r.min) rank = r;
   }
   return rank;
 }
 
 export default function ProfilePage() {
+  const { t, locale } = useLocale();
   const [profile, setProfile] = useState<ProfileData>({ name: "", avatarPath: null });
   const [memories, setMemories] = useState<Memory[]>([]);
   const [threads, setThreads] = useState<MemoryThread[]>([]);
@@ -147,7 +149,7 @@ export default function ProfilePage() {
     if (!years.includes(selectedYear)) setSelectedYear(years[0] ?? new Date().getFullYear());
   }, [selectedYear, years]);
 
-  const rank = useMemo(() => getRank(stats.totalMemories), [stats.totalMemories]);
+  const rank = useMemo(() => getRankT(stats.totalMemories), [stats.totalMemories]);
 
   const initials = useMemo(() => {
     const name = profile.name?.trim();
@@ -215,7 +217,7 @@ export default function ProfilePage() {
           className="profile-avatar profile-avatar--large"
           onClick={handleAvatarUpload}
           style={avatarStyle}
-          aria-label="Upload avatar"
+          aria-label={t("profile.upload.avatar")}
         >
           {!profile.avatarPath && (
             <span className="profile-initials">{initials}</span>
@@ -236,23 +238,23 @@ export default function ProfilePage() {
                 if (e.key === "Enter") saveName();
                 if (e.key === "Escape") setEditingName(false);
               }}
-              placeholder="Your name"
+              placeholder={t("profile.your.name")}
             />
           ) : (
             <h1 className="profile-name profile-name--centered" onClick={() => { setNameDraft(profile.name || ""); setEditingName(true); }}>
-              {profile.name || "Life Trace"}
+              {profile.name || t("profile.default.name")}
             </h1>
           )}
           <span className="profile-rank">
             <Trophy size={14} />
-            {rank.label}
+            {t(rank.key)}
           </span>
         </div>
       </div>
 
       {/* Statistics */}
       <div className="profile-section">
-        <span className="eyebrow">STATISTICS</span>
+        <span className="eyebrow">{t("profile.statistics")}</span>
         <div className="profile-stats">
           <div className="profile-stat">
             <div
@@ -263,7 +265,7 @@ export default function ProfilePage() {
             </div>
             <div className="profile-stat-body">
               <strong>{stats.totalMemories}</strong>
-              <span>Memories</span>
+              <span>{t("profile.memories")}</span>
             </div>
           </div>
           <div className="profile-stat">
@@ -275,7 +277,7 @@ export default function ProfilePage() {
             </div>
             <div className="profile-stat-body">
               <strong>{stats.totalPhotos}</strong>
-              <span>Photos</span>
+              <span>{t("profile.photos")}</span>
             </div>
           </div>
           <div className="profile-stat">
@@ -287,7 +289,7 @@ export default function ProfilePage() {
             </div>
             <div className="profile-stat-body">
               <strong>{stats.favorites}</strong>
-              <span>Favorites</span>
+              <span>{t("profile.favorites")}</span>
             </div>
           </div>
           <div className="profile-stat">
@@ -299,7 +301,7 @@ export default function ProfilePage() {
             </div>
             <div className="profile-stat-body">
               <strong>{stats.totalThreads}</strong>
-              <span>Threads</span>
+              <span>{t("profile.threads")}</span>
             </div>
           </div>
           <div className="profile-stat">
@@ -311,7 +313,7 @@ export default function ProfilePage() {
             </div>
             <div className="profile-stat-body">
               <strong>{stats.activeYears}</strong>
-              <span>Active years</span>
+              <span>{t("profile.active.years")}</span>
             </div>
           </div>
           <div className="profile-stat">
@@ -324,10 +326,10 @@ export default function ProfilePage() {
             <div className="profile-stat-body">
               <strong>
                 {stats.spanYears > 0
-                  ? `${stats.spanYears} yr${stats.spanYears !== 1 ? "s" : ""}`
+                  ? `${stats.spanYears} ${stats.spanYears > 1 ? t("profile.span.years") : t("profile.span.year")}`
                   : "—"}
               </strong>
-              <span>Journey span</span>
+              <span>{t("profile.journey.span")}</span>
             </div>
           </div>
         </div>
@@ -342,7 +344,7 @@ export default function ProfilePage() {
             {" — "}
             <strong>{formatDate(stats.lastDate!)}</strong>
           </span>
-          <span className="profile-date-range-label">Your journey so far</span>
+          <span className="profile-date-range-label">{t("profile.journey.so.far")}</span>
         </div>
       )}
 
@@ -362,9 +364,9 @@ export default function ProfilePage() {
       {memories.length === 0 && (
         <div className="profile-empty">
           <MapPin size={24} />
-          <p>No memories yet</p>
+          <p>{t("profile.no.memories")}</p>
           <small>
-            Create your first memory on the map to start tracking your story.
+            {t("profile.no.memories.hint")}
           </small>
         </div>
       )}
