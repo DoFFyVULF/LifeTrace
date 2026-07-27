@@ -36,7 +36,7 @@ function addRecentId(id: string) {
 export function Sidebar() {
   const { t } = useLocale();
   const [memories, setMemories] = useState<ArchiveMemory[]>([]);
-  const [recentIds, setRecentIds] = useState<string[]>([]);
+  const [recentIds, setRecentIds] = useState<string[]>(() => getRecentIds());
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [collectionOpen, setCollectionOpen] = useState(false);
@@ -53,8 +53,6 @@ export function Sidebar() {
   }, []);
 
   useEffect(() => {
-    setRecentIds(getRecentIds());
-
     const onState = (event: Event) => {
       const detail = (event as CustomEvent<ArchiveMemory[]>).detail;
       if (!Array.isArray(detail)) return;
@@ -81,13 +79,15 @@ export function Sidebar() {
     };
   }, [fetchCollections]);
 
-  // Show all memories (Recent tab) or only favorites (Favorites tab)
+  // Show recent (from recentIds) or only favorites
   const shown = useMemo(
     () =>
       showFavoritesOnly
         ? memories.filter((memory) => memory.favorite)
-        : memories,
-    [showFavoritesOnly, memories],
+        : recentIds
+            .map((id) => memories.find((m) => m.id === id))
+            .filter((m): m is ArchiveMemory => m != null),
+    [showFavoritesOnly, memories, recentIds],
   );
 
   const chooseFilter = (showFav: boolean) => {

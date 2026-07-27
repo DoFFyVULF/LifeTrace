@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Check,
   Layers3,
@@ -196,6 +197,8 @@ export function Map() {
   const [importing, setImporting] = useState(false);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [pendingImport, setPendingImport] = useState<{
     cover: string;
     media: string[];
@@ -203,11 +206,20 @@ export function Map() {
     date: string;
   } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [pickingLocation, setPickingLocation] = useState<FormData | null>(null);
+  const pickingLocationRef = useRef<FormData | null>(null);
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
   const selectedRef = useRef<string | null>(null);
   const memoriesRef = useRef<Memory[]>(memories);
   const addModeRef = useRef(false);
+  useEffect(() => {
+    setMounted(true);
+    setPortalContainer(document.body);
+  }, []);
+  useEffect(() => {
+    pickingLocationRef.current = pickingLocation;
+  }, [pickingLocation]);
   useEffect(() => {
     selectedRef.current = selectedId;
   }, [selectedId]);
@@ -442,6 +454,7 @@ export function Map() {
       }
       setForm(null);
       setEditingId(null);
+      setPickingLocation(null);
     } catch {
       setImportToast(t("map.save.failed"));
     }
@@ -526,9 +539,23 @@ export function Map() {
       );
       return;
     }
+    if (pickingLocationRef.current) {
+      const saved = pickingLocationRef.current;
+      setForm({
+        ...saved,
+        place: `${lat.toFixed(5)}°, ${lng.toFixed(5)}°`,
+        lng: Number(lng.toFixed(5)),
+        lat: Number(lat.toFixed(5)),
+        city,
+        country,
+      });
+      setPickingLocation(null);
+      setAddMode(false);
+      return;
+    }
     setAddMode(false);
     openCreate(lng, lat, city, country);
-  }, []);
+  }, [locale]);
   const importPhotos = async (files: File[]) => {
     const photos = files.filter(isSupportedPhoto);
     if (!photos.length) {
@@ -859,7 +886,7 @@ export function Map() {
           </small>
         )}
       </div>
-      {deleteTarget && (
+      {portalContainer && deleteTarget && createPortal(
         <div
           className="delete-modal"
           role="dialog"
@@ -885,9 +912,10 @@ export function Map() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        portalContainer,
       )}
-      {form && (
+      {portalContainer && form && createPortal(
         <div className="memory-modal">
           <div className="memory-modal-card">
             <div className="modal-head">
@@ -895,7 +923,7 @@ export function Map() {
                 <span className="eyebrow">{editingId ? t("map.form.edit") : t("map.form.new")}</span>
                 <h2>{editingId ? t("map.form.edit.title") : t("map.form.new.title")}</h2>
               </div>
-              <button onClick={() => { setForm(null); setEditingId(null); pendingMediaRef.current = null; }}>
+              <button onClick={() => { setForm(null); setEditingId(null); setPickingLocation(null); pendingMediaRef.current = null; }}>
                 <X size={17} />
               </button>
             </div>
@@ -938,6 +966,17 @@ export function Map() {
             <div className="modal-coordinates">
               {form.lat}° lat · {form.lng}° lng
               {form.city || form.country ? ` · ${[form.city, form.country].filter(Boolean).join(", ")}` : ""}
+              <button
+                type="button"
+                className="pick-location-btn"
+                onClick={() => {
+                  setPickingLocation(form);
+                  setForm(null);
+                  setAddMode(true);
+                }}
+              >
+                {t("map.pick.location")}
+              </button>
             </div>
             <div className="modal-tags">
               <span className="eyebrow">{t("tags.label")}</span>
@@ -986,7 +1025,8 @@ export function Map() {
               {editingId ? t("map.form.save.changes") : t("map.form.save.memory")}
             </button>
           </div>
-        </div>
+        </div>,
+        portalContainer,
       )}
     </div>
   );

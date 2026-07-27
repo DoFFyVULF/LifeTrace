@@ -180,6 +180,14 @@ export function Header() {
                         <strong className="header-search-card-title">
                           {memory.title}
                         </strong>
+                        <span className="header-search-card-tags">
+                          {(memory.tags ?? []).slice(0, 3).map((tag) => (
+                            <span key={tag} className="header-search-tag">{tag}</span>
+                          ))}
+                          {(memory.tags ?? []).length > 3 && (
+                            <span className="header-search-tag header-search-tag--more">+{memory.tags.length - 3}</span>
+                          )}
+                        </span>
                         <span className="header-search-card-meta">
                           <span className="header-search-card-place">
                             {memory.place || memory.city || memory.country

@@ -1349,12 +1349,14 @@ button {
   font-size: 10px;
 }
 .memory-modal {
-  position: absolute;
-  z-index: 8;
+  position: fixed;
+  z-index: 100;
   inset: 0;
   display: grid;
   place-items: center;
   background: rgba(36, 55, 53, 0.16);
+  overflow-y: auto;
+  padding: 24px 16px;
 }
 .memory-modal-card {
   width: min(380px, calc(100% - 40px));
@@ -1396,6 +1398,25 @@ button {
   margin: 12px 0 16px;
   color: var(--muted);
   font-size: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pick-location-btn {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 10px;
+  background: #eeece6;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.pick-location-btn:hover {
+  background: #e0dfd7;
+  border-color: var(--ink);
 }
 .modal-tags {
   margin: 12px 0;
@@ -2526,6 +2547,28 @@ button {
   font-size: 9px;
   color: var(--muted);
 }
+.header-search-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 2px;
+}
+.header-search-tag {
+  font-size: 8px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 3px;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+.header-search-tag--more {
+  background: var(--muted);
+  color: var(--ink);
+}
+.header-search-tag:nth-child(1) { background: var(--card-color); color: white; }
+.header-search-tag:nth-child(2) { background: color-mix(in srgb, var(--card-color) 70%, var(--ink)); color: white; }
+.header-search-tag:nth-child(3) { background: color-mix(in srgb, var(--card-color) 50%, var(--ink)); color: white; }
+.header-search-tag:nth-child(4) { background: color-mix(in srgb, var(--card-color) 35%, var(--ink)); color: white; }
 .header-search-card-place {
   overflow: hidden;
   text-overflow: ellipsis;
