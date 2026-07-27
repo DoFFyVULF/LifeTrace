@@ -217,15 +217,15 @@ export function ConstellationTimeline({
       {/* Header */}
       <div className="constellation-head">
         <div>
-          <span className="eyebrow">YOUR YEAR, IN CONSTELLATIONS</span>
+          <span className="eyebrow">{t("constellation.eyebrow")}</span>
           <h2 id="constellation-title">{t("constellation.title", { year: selectedYear })}</h2>
         </div>
         <div
           className="constellation-year"
-          aria-label="Choose year"
+          aria-label={t("constellation.choose.year")}
         >
           <button
-            aria-label="Previous year"
+            aria-label={t("constellation.prev.year")}
             disabled={
               years.indexOf(selectedYear) === years.length - 1
             }
@@ -240,7 +240,7 @@ export function ConstellationTimeline({
           </button>
           <span>{selectedYear}</span>
           <button
-            aria-label="Next year"
+            aria-label={t("constellation.next.year")}
             disabled={years.indexOf(selectedYear) === 0}
             onClick={() => {
               onSelectMonth(null);
@@ -260,10 +260,10 @@ export function ConstellationTimeline({
             (total, month) => total + month.length,
             0,
           )}{" "}
-          moments kept
+          {t("constellation.moments.kept")}
         </span>
         <i />
-        <span>{isCurrentYear ? `${lastPathMonth + 1} months charted` : "12 months charted"}</span>
+        <span>{isCurrentYear ? t("constellation.months.charted", { count: lastPathMonth + 1 }) : t("constellation.months.charted.full")}</span>
       </p>
 
       {/* Canvas */}
@@ -337,7 +337,7 @@ export function ConstellationTimeline({
                   "--glow-mult": isSelected ? "3" : "1",
                 } as React.CSSProperties
               }
-              aria-label={`${month.label}, ${count} ${count === 1 ? "moment" : "moments"}`}
+              aria-label={t("constellation.aria.month", { month: month.label, count, label: count === 1 ? t("constellation.label.moment") : t("constellation.label.moments") })}
               aria-expanded={isSelected}
               disabled={isBeyondPath}
               onClick={() => handleSelectMonth(index)}
@@ -392,7 +392,7 @@ export function ConstellationTimeline({
             <div className="constellation-drawer-title">
               <div>
                 <span className="eyebrow">
-                  CHAPTER {String(selectedMonth + 1).padStart(2, "0")} /{" "}
+                  {t("constellation.chapter", { num: String(selectedMonth + 1).padStart(2, "0") })} /{" "}
                   {selectedYear}
                 </span>
                 <h3>{MONTH_DATA[selectedMonth].label}</h3>
@@ -400,7 +400,7 @@ export function ConstellationTimeline({
               <button
                 className="constellation-close"
                 onClick={() => onSelectMonth(null)}
-                aria-label="Close month"
+                aria-label={t("constellation.close.month")}
               >
                 <ChevronDown size={17} />
               </button>
