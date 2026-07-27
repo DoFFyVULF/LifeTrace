@@ -2557,7 +2557,7 @@ button {
   stroke-width: 1.5;
   stroke-dasharray: 1200;
   stroke-dashoffset: 1200;
-  animation: const-path-draw 2s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .constellation-path-glow {
   fill: none;
@@ -2566,7 +2566,7 @@ button {
   filter: blur(8px);
   stroke-dasharray: 1200;
   stroke-dashoffset: 1200;
-  animation: const-path-draw 2s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards;
+  transition: stroke-dashoffset 2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* Star marker */
@@ -2583,6 +2583,7 @@ button {
   background: transparent;
   color: var(--muted);
   transform: translate(-50%, -50%);
+  transition: opacity 0.5s ease;
   animation: const-star-in 0.5s cubic-bezier(0.16, 1, 0.3, 1)
     calc(var(--route-index, 0) * 42ms + 200ms) both;
   cursor: pointer;
@@ -2626,6 +2627,9 @@ button {
   filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.08));
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
+.constellation-star-shape polygon {
+  transition: fill 0.5s ease;
+}
 .constellation-star.is-active .constellation-star-shape {
   transform: scale(1.2);
 }
@@ -2637,7 +2641,12 @@ button {
   left: 50%;
   width: 0;
   height: 0;
+  opacity: 0;
+  transition: opacity 0.5s ease;
   animation: const-spark-orbit 4s linear infinite;
+}
+.constellation-spark.is-visible {
+  opacity: 1;
 }
 .constellation-spark::after {
   display: block;
@@ -2669,7 +2678,7 @@ button {
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
-  transition: color 0.3s ease;
+  transition: opacity 0.4s ease, color 0.3s ease;
 }
 .constellation-star.has-memories .constellation-star-label {
   color: var(--ink);
@@ -2687,7 +2696,7 @@ button {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   pointer-events: none;
-  transition: color 0.3s ease;
+  transition: opacity 0.4s ease, color 0.3s ease;
 }
 .constellation-star.is-active .constellation-star-count {
   color: var(--muted);
@@ -2866,11 +2875,6 @@ button {
 
 /* ─── Animations ──────────────────────────────────────────── */
 
-@keyframes const-path-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
 @keyframes const-star-in {
   from {
     opacity: 0;

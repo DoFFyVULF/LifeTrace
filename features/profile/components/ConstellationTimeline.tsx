@@ -137,6 +137,10 @@ export function ConstellationTimeline({
   // Only use real Date() after client hydration to avoid SSR mismatch
   useEffect(() => { setClientReady(true); }, []);
 
+  // stroke-dashoffset: 1200 = fully hidden, 0 = fully revealed.
+  // CSS transition animates every change to this value.
+  const [strokeDashoffset, setStrokeDashoffset] = useState(1200);
+
   // Reactive month data — rebuilds when locale changes
   const monthData = useMemo(
     () =>
@@ -200,14 +204,30 @@ export function ConstellationTimeline({
     }
   }
 
-  // Path always covers at least what memories exist.
-  // For current year it also covers up to the current calendar month.
-  // For past years it covers all 12 months regardless of memory placement.
-  const lastPathMonth = isCurrentYear
+  // How many months to reveal along the full 12‑month path.
+  // For current year — up to the current calendar month (or last memory month).
+  // For past years — all 12.
+  const revealIndex = isCurrentYear
     ? Math.min(Math.max(now.getMonth(), lastMemoryMonth), 11)
     : 11;
 
-  const pathD = buildPath(svgSize.w, svgSize.h, [...ROUTE_TOPS], lastPathMonth);
+  // Always build the full 12‑month path so the geometry stays stable;
+  // visibility is controlled via stroke-dashoffset below.
+  const pathD = buildPath(svgSize.w, svgSize.h, [...ROUTE_TOPS], 11);
+
+  // Target dash offset – CSS transition will animate to this value.
+  // Past years: 0 (fully visible). Current year: partially hidden after the
+  // current month.
+  const targetOffset = useMemo(() => {
+    if (!clientReady) return 0; // SSR: fully visible
+    const fraction = (revealIndex + 1) / 12;
+    return Math.round(1200 * (1 - fraction));
+  }, [revealIndex, clientReady]);
+
+  // Sync the live offset to the target – the CSS transition does the rest.
+  useEffect(() => {
+    setStrokeDashoffset(targetOffset);
+  }, [targetOffset]);
 
   // scroll selected month into view
   useEffect(() => {
@@ -281,7 +301,7 @@ export function ConstellationTimeline({
           {t("constellation.moments.kept")}
         </span>
         <i />
-        <span>{isCurrentYear ? t("constellation.months.charted", { count: lastPathMonth + 1 }) : t("constellation.months.charted.full")}</span>
+        <span>{isCurrentYear ? t("constellation.months.charted", { count: revealIndex + 1 }) : t("constellation.months.charted.full")}</span>
       </p>
 
       {/* Canvas */}
@@ -317,9 +337,15 @@ export function ConstellationTimeline({
             className="constellation-path-glow"
             d={pathD}
             pathLength={1200}
+            style={{ strokeDashoffset }}
           />
           {/* Main constellation path */}
-          <path className="constellation-path" d={pathD} pathLength={1200} />
+          <path
+            className="constellation-path"
+            d={pathD}
+            pathLength={1200}
+            style={{ strokeDashoffset }}
+          />
         </svg>
 
         {/* Month markers */}
@@ -336,7 +362,7 @@ export function ConstellationTimeline({
           const isSelected = selectedMonth === index;
           const hasMemories = count > 0;
           // A month is beyond the path if it's past the path end AND has no memories
-          const isBeyondPath = index > lastPathMonth && !hasMemories;
+          const isBeyondPath = index > revealIndex && !hasMemories;
 
           return (
             <button
@@ -383,10 +409,10 @@ export function ConstellationTimeline({
                   }
                 />
               </svg>
-              {/* Orbiting spark */}
-              {hasMemories && !isBeyondPath && (
-                <span className="constellation-spark" />
-              )}
+              {/* Orbiting spark (always rendered, opacity‑controlled) */}
+              <span
+                className={`constellation-spark${hasMemories && !isBeyondPath ? " is-visible" : ""}`}
+              />
               {/* Label */}
               <span className="constellation-star-label">
                 {month.short}
