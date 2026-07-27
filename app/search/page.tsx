@@ -18,6 +18,7 @@ type SearchMemory = {
   city?: string;
   country?: string;
   tags?: string[];
+  _matchTags?: string[];
 };
 
 const formatDate = (dateStr: string, locale: string = "en-GB") => {
@@ -59,14 +60,20 @@ function SearchResults() {
   const results = useMemo(() => {
     if (!query.trim()) return [];
     const q = query.toLowerCase();
-    return memories.filter(
-      (m) =>
-        m.title.toLowerCase().includes(q) ||
-        m.place.toLowerCase().includes(q) ||
-        (m.city || "").toLowerCase().includes(q) ||
-        (m.country || "").toLowerCase().includes(q) ||
-        (m.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
-    );
+    return memories
+      .filter(
+        (m) =>
+          m.title.toLowerCase().includes(q) ||
+          m.place.toLowerCase().includes(q) ||
+          (m.city || "").toLowerCase().includes(q) ||
+          (m.country || "").toLowerCase().includes(q) ||
+          (m.tags ?? []).some((tag) => tag.toLowerCase().includes(q)),
+      )
+      .map((m) => ({
+        ...m,
+        _matchTags:
+          (m.tags ?? []).filter((tag) => tag.toLowerCase().includes(q)),
+      }));
   }, [query, memories]);
 
   return (
@@ -122,7 +129,12 @@ function SearchResults() {
                 {memory.tags && memory.tags.length > 0 && (
                   <span className="search-page-card-tags">
                     {memory.tags.map((tag) => (
-                      <span key={tag} className="tag-chip">{tag}</span>
+                      <span
+                        key={tag}
+                        className={`tag-chip ${(memory._matchTags ?? []).includes(tag) ? "tag-chip--match" : ""}`}
+                      >
+                        {tag}
+                      </span>
                     ))}
                   </span>
                 )}

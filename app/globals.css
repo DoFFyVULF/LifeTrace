@@ -3334,13 +3334,17 @@ button {
 .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 10px;
+  gap: 5px;
+  margin: 18px 0 6px;
 }
 .tag-list .tag-chip {
-  background: #e0e3dd;
+  background: #e6eae4;
   color: var(--ink);
-  font-size: 9px;
+  font-size: 10px;
+  font-weight: 500;
+  padding: 3px 9px;
+  border-radius: 5px;
+  border: 1px solid rgba(36, 55, 53, 0.1);
   cursor: default;
   pointer-events: none;
 }
@@ -3456,11 +3460,18 @@ button {
   margin-top: 4px;
 }
 .search-page-card-tags .tag-chip {
-  font-size: 8px;
-  padding: 1px 5px;
-  background: #dce0da;
+  font-size: 9px;
+  padding: 2px 7px;
+  background: #e6eae4;
   color: var(--ink);
+  border: 1px solid rgba(36, 55, 53, 0.06);
   pointer-events: none;
+}
+.search-page-card-tags .tag-chip--match {
+  background: #f2e8d5;
+  border-color: #d4a574;
+  color: #8b6914;
+  font-weight: 600;
 }
 .search-page-loading {
   display: grid;
