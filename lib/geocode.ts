@@ -7,6 +7,7 @@
 export async function reverseGeocode(
   lat: number,
   lng: number,
+  locale = "en",
 ): Promise<{ city: string | null; country: string | null } | null> {
   // Skip if coordinates are default/zero
   if (!lat && !lng) return null;
@@ -17,7 +18,7 @@ export async function reverseGeocode(
       {
         headers: {
           "User-Agent": "LifeTrace/1.0 (memory tracking app)",
-          "Accept-Language": "en",
+          "Accept-Language": locale,
         },
       },
     );

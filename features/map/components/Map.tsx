@@ -175,7 +175,7 @@ const isSupportedPhoto = (file: File) =>
   /\.(heic|heif|jpg|jpeg|png|webp|gif|avif|bmp|tif|tiff)$/i.test(file.name);
 
 export function Map() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showThreads, setShowThreads] = useState(false);
@@ -273,6 +273,38 @@ export function Map() {
       window.removeEventListener("life-trace-show-threads", onShowThreads);
     };
   }, []);
+
+  // Re‑geocode all memories when locale changes so city/country reflect the current language
+  useEffect(() => {
+    if (!memories.length) return;
+    let cancelled = false;
+    void (async () => {
+      const updated = await Promise.all(
+        memories.map(async (m) => {
+          if (!m.lat || !m.lng) return null;
+          const geo = await reverseGeocode(m.lat, m.lng, locale).catch(() => null);
+          if (!geo) return null;
+          const newCity = geo.city || m.city;
+          const newCountry = geo.country || m.country;
+          if (newCity === m.city && newCountry === m.country) return null;
+          fetch(`/api/memories/${m.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ city: newCity, country: newCountry }),
+          }).catch(() => {});
+          return { ...m, city: newCity, country: newCountry };
+        }),
+      );
+      if (cancelled) return;
+      const patched = updated.filter(Boolean) as Memory[];
+      if (patched.length) {
+        setMemories((prev) =>
+          prev.map((m) => patched.find((p) => p.id === m.id) ?? m),
+        );
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [locale]);
   const setLocalMemories = (next: Memory[]) => {
     setMemories(next);
     window.dispatchEvent(
@@ -322,6 +354,20 @@ export function Map() {
   };
   const save = async () => {
     if (!form?.title.trim()) return;
+
+    // Reverse-geocode if lat/lng are set but city/country are missing
+    let city = form.city;
+    let country = form.country;
+    if ((!city || !country) && form.lat && form.lng) {
+      try {
+        const geo = await reverseGeocode(form.lat, form.lng, locale);
+        if (geo) {
+          if (!city) city = geo.city || "";
+          if (!country) country = geo.country || "";
+        }
+      } catch { /* silent */ }
+    }
+
     const memoryData = {
       title: form.title,
       place: form.place,
@@ -334,8 +380,8 @@ export function Map() {
       image: form.cover || form.color,
       media: pendingMediaRef.current || (form.cover ? [form.cover] : []),
       favorite: false,
-      city: form.city || null,
-      country: form.country || null,
+      city: city || null,
+      country: country || null,
     };
     pendingMediaRef.current = null;
     try {
@@ -427,7 +473,7 @@ export function Map() {
     let city = "";
     let country = "";
     try {
-      const geo = await reverseGeocode(lat, lng);
+      const geo = await reverseGeocode(lat, lng, locale);
       if (geo) {
         city = geo.city || "";
         country = geo.country || "";
@@ -499,7 +545,7 @@ export function Map() {
         gps.length;
       let city: string | null = null;
       let country: string | null = null;
-      try { const geo = await reverseGeocode(lat, lng); if (geo) { city = geo.city; country = geo.country; } } catch { /* silent */ }
+      try { const geo = await reverseGeocode(lat, lng, locale); if (geo) { city = geo.city; country = geo.country; } } catch { /* silent */ }
 
       // Create memory via API
       const res = await fetch("/api/memories", {

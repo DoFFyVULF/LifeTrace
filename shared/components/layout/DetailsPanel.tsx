@@ -69,11 +69,10 @@ export function DetailsPanel() {
             <br />
             <strong>
               {latest
-                ? new Date(latest.date).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                  })
+                ? new Date(latest.date).toLocaleDateString(
+                    locale === "ru" ? "ru" : "en-GB",
+                    { day: "numeric", month: "long", year: "numeric" },
+                  )
                 : t("details.no.memories")}
             </strong>
           </span>

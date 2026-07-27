@@ -34,36 +34,20 @@ button {
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
   padding: 0 28px;
-  background: rgba(244, 241, 235, 0.92);
+  background: rgba(240, 236, 227, 0.32);
 }
 .brand {
   display: flex;
   align-items: center;
   gap: 11px;
-  width: 220px;
   text-decoration: none;
   color: inherit;
 }
 .brand-mark {
-  display: grid;
-  height: 32px;
-  width: 32px;
-  place-items: center;
-  border-radius: 50%;
-  background: var(--ink);
-  color: #f4f1eb;
-}
-.brand h1 {
-  margin: 0;
-  font-size: 15px;
-  letter-spacing: -0.02em;
-}
-.brand p {
-  margin: 2px 0 0;
-  color: var(--muted);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 .search-box {
   display: flex;

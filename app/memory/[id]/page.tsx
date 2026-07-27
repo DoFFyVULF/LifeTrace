@@ -20,6 +20,7 @@ import {
 import type { Memory } from "@/features/map/components/MapCanvas";
 import { Switch } from "@/shared/components/ui/Switch";
 import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
+import { reverseGeocode } from "@/lib/geocode";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type EditableMemory = Memory & { description?: string; note?: string };
@@ -27,7 +28,7 @@ const isVideo = (src: string) =>
   src.startsWith("data:video/") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
 
 export default function MemoryPage() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const { id } = useParams<{ id: string }>();
   const [memory, setMemory] = useState<EditableMemory | null>(null);
   const [editing, setEditing] = useState(false);
@@ -37,16 +38,35 @@ export default function MemoryPage() {
     void (async () => {
       try {
         const res = await fetch(`/api/memories/${id}`);
-        if (res.ok) {
-          setMemory(await res.json());
-        } else {
-          setMemory(null);
-        }
+        if (!res.ok) { setMemory(null); return; }
+        const data: EditableMemory = await res.json();
+        setMemory(data);
       } catch {
         setMemory(null);
       }
     })();
   }, [id]);
+
+  // Re‑geocode when locale changes so city/country reflect the current language
+  useEffect(() => {
+    if (!memory?.lat || !memory?.lng) return;
+    let cancelled = false;
+    void (async () => {
+      const geo = await reverseGeocode(memory.lat, memory.lng, locale).catch(() => null);
+      if (cancelled || !geo) return;
+      const newCity = geo.city || memory.city;
+      const newCountry = geo.country || memory.country;
+      if (newCity === memory.city && newCountry === memory.country) return;
+      const updated = { ...memory, city: newCity, country: newCountry };
+      setMemory(updated);
+      fetch(`/api/memories/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ city: newCity, country: newCountry }),
+      }).catch(() => { /* silent */ });
+    })();
+    return () => { cancelled = true; };
+  }, [locale, memory?.id, memory?.lat, memory?.lng]);
 
   const persist = async (updated: EditableMemory) => {
     setMemory(updated);

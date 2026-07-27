@@ -57,6 +57,7 @@ export function Sidebar() {
 
     const onState = (event: Event) => {
       const detail = (event as CustomEvent<ArchiveMemory[]>).detail;
+      if (!Array.isArray(detail)) return;
       setMemories(detail);
       // Prune recent IDs that no longer exist
       const validIds = detail.map((m) => m.id);

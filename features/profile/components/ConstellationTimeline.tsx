@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { isMediaSrc } from "@/lib/media";
@@ -9,15 +9,21 @@ import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 // ─── helpers ────────────────────────────────────────────────
 
-const MONTH_DATA = Array.from({ length: 12 }, (_, i) => ({
-  index: i,
-  label: new Intl.DateTimeFormat("en-GB", { month: "long" }).format(
-    new Date(2026, i, 1),
-  ),
-  short: new Intl.DateTimeFormat("en-GB", { month: "short" }).format(
-    new Date(2026, i, 1),
-  ),
-}));
+/** Translation keys for each month: [fullNameKey, shortNameKey]. */
+const MONTH_KEYS: [string, string][] = [
+  ["month.january", "month.jan"],
+  ["month.february", "month.feb"],
+  ["month.march", "month.mar"],
+  ["month.april", "month.apr"],
+  ["month.may", "month.may.short"],
+  ["month.june", "month.jun"],
+  ["month.july", "month.jul"],
+  ["month.august", "month.aug"],
+  ["month.september", "month.sep"],
+  ["month.october", "month.oct"],
+  ["month.november", "month.nov"],
+  ["month.december", "month.dec"],
+];
 
 /** Return a 5-pointed star polygon points string for an SVG. */
 function starPoints(cx: number, cy: number, r: number): string {
@@ -123,15 +129,27 @@ export function ConstellationTimeline({
   years,
 }: Props) {
   const router = useRouter();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const dateLocale = locale === "ru" ? "ru" : "en-GB";
   const canvasRef = useRef<HTMLDivElement>(null);
   const [clientReady, setClientReady] = useState(false);
 
   // Only use real Date() after client hydration to avoid SSR mismatch
   useEffect(() => { setClientReady(true); }, []);
 
+  // Reactive month data — rebuilds when locale changes
+  const monthData = useMemo(
+    () =>
+      MONTH_KEYS.map(([labelKey, shortKey], index) => ({
+        index,
+        label: t(labelKey),
+        short: t(shortKey),
+      })),
+    [t],
+  );
+
   // memories grouped and sorted per month
-  const memoriesByMonth = MONTH_DATA.map(({ index }) =>
+  const memoriesByMonth = monthData.map(({ index }) =>
     memories
       .filter((m) => {
         const d = new Date(m.date);
@@ -305,9 +323,9 @@ export function ConstellationTimeline({
         </svg>
 
         {/* Month markers */}
-        {MONTH_DATA.map((month, index) => {
+        {monthData.map((month, index) => {
           const count = monthCounts[index];
-          const stepX = svgSize.w / (MONTH_DATA.length + 1);
+          const stepX = svgSize.w / (monthData.length + 1);
           const left = stepX * (index + 1);
           const top = (ROUTE_TOPS[index] / 100) * svgSize.h;
           const starSize = clamp(
@@ -395,7 +413,7 @@ export function ConstellationTimeline({
                   {t("constellation.chapter", { num: String(selectedMonth + 1).padStart(2, "0") })} /{" "}
                   {selectedYear}
                 </span>
-                <h3>{MONTH_DATA[selectedMonth].label}</h3>
+                <h3>{monthData[selectedMonth].label}</h3>
               </div>
               <button
                 className="constellation-close"
@@ -441,7 +459,7 @@ export function ConstellationTimeline({
                       </span>
                       <time>
                         {new Date(memory.date).toLocaleDateString(
-                          "en-GB",
+                          dateLocale,
                           { day: "numeric", month: "short" },
                         )}
                       </time>
@@ -457,7 +475,7 @@ export function ConstellationTimeline({
                       )
                     }
                   >
-                    {t("constellation.see.all", { count: selectedMemories.length, month: MONTH_DATA[selectedMonth].label })}
+                    {t("constellation.see.all", { count: selectedMemories.length, month: monthData[selectedMonth].label })}
                     <ChevronRight size={15} />
                   </button>
                 )}

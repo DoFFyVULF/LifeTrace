@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Camera,
@@ -13,6 +13,7 @@ import {
 import type { Memory, MemoryThread } from "@/features/map/components/MapCanvas";
 import { ProfileLayout } from "@/shared/components/layout/ProfileLayout";
 import { prepareUpload, uploadMedia } from "@/lib/media";
+import { reverseGeocode } from "@/lib/geocode";
 import { ConstellationTimeline } from "@/features/profile/components/ConstellationTimeline";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
@@ -100,6 +101,37 @@ export default function ProfilePage() {
     window.addEventListener("life-trace-memory-state", onState);
     return () => window.removeEventListener("life-trace-memory-state", onState);
   }, [fetchProfile, fetchMemories, fetchThreads]);
+
+  // Re‑geocode all memories when locale changes so city/country reflect the current language
+  useEffect(() => {
+    if (!memories.length) return;
+    let cancelled = false;
+    void (async () => {
+      const updated = await Promise.all(
+        memories.map(async (m) => {
+          if (!m.lat || !m.lng) return null;
+          const geo = await reverseGeocode(m.lat, m.lng, locale).catch(() => null);
+          if (!geo) return null;
+          const newCity = geo.city || m.city;
+          const newCountry = geo.country || m.country;
+          if (newCity === m.city && newCountry === m.country) return null;
+          // Persist to API
+          fetch(`/api/memories/${m.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ city: newCity, country: newCountry }),
+          }).catch(() => {});
+          return { ...m, city: newCity, country: newCountry };
+        }),
+      );
+      if (cancelled) return;
+      const patched = updated.filter(Boolean) as Memory[];
+      if (patched.length) setMemories((prev) =>
+        prev.map((m) => patched.find((p) => p.id === m.id) ?? m),
+      );
+    })();
+    return () => { cancelled = true; };
+  }, [locale]);
 
   const stats = useMemo(() => {
     const totalMemories = memories.length;
