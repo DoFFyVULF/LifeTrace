@@ -82,6 +82,7 @@ export function Map() {
   const pickingLocationRef = useRef<FormData | null>(null);
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
+  const [allTags, setAllTags] = useState<string[]>([]);
   const selectedRef = useRef<string | null>(null);
   const memoriesRef = useRef<Memory[]>(memories);
   const addModeRef = useRef(false);
@@ -92,6 +93,19 @@ export function Map() {
   useEffect(() => {
     pickingLocationRef.current = pickingLocation;
   }, [pickingLocation]);
+  // Fetch all existing tags once for autocomplete
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/tags");
+        if (res.ok) {
+          const data: { tags: { name: string; count: number }[] } =
+            await res.json();
+          setAllTags(data.tags.map((t) => t.name));
+        }
+      } catch { /* silent */ }
+    })();
+  }, []);
   useEffect(() => {
     selectedRef.current = selectedId;
   }, [selectedId]);
@@ -1035,6 +1049,7 @@ export function Map() {
                 tags={form.tags}
                 onChange={(tags) => setForm({ ...form, tags })}
                 placeholder={t("tags.placeholder")}
+                existingTags={allTags}
               />
             </div>
             <div className="modal-color-picker">

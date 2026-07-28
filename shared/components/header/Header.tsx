@@ -1,12 +1,13 @@
 "use client";
 
-import { Heart, Plus, Settings, UserRound } from "lucide-react";
+import { Hash, Heart, Plus, Settings, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from "./Logo";
 import { SettingsModal } from "@/shared/components/settings/SettingsModal";
+import { TagManager } from "@/shared/components/tags/TagManager";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 import { isMediaSrc } from "@/lib/media";
 
@@ -39,6 +40,7 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [memories, setMemories] = useState<HeaderMemory[]>([]);
   const isProfile = pathname === "/profile";
@@ -235,6 +237,13 @@ export function Header() {
         </button>
         <button
           className="icon-button"
+          aria-label="Tags"
+          onClick={() => setTagManagerOpen(true)}
+        >
+          <Hash size={16} />
+        </button>
+        <button
+          className="icon-button"
           aria-label={t("settings.button")}
           onClick={() => setSettingsOpen(true)}
         >
@@ -248,6 +257,16 @@ export function Header() {
           <UserRound size={16} />
         </Link>
       </div>
+      <TagManager
+        open={tagManagerOpen}
+        onClose={() => setTagManagerOpen(false)}
+        onSelectTag={(tag) => {
+          setSearchQuery(`#${tag}`);
+          window.dispatchEvent(
+            new CustomEvent("life-trace-search", { detail: `#${tag}` }),
+          );
+        }}
+      />
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

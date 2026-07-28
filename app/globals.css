@@ -3310,6 +3310,27 @@ button {
   font-weight: 500;
 }
 
+/* ─── Tag Manager ──────────────────────────────────────────── */
+
+.tag-manager-overlay { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(28,35,32,.38); backdrop-filter: blur(6px); animation: modal-in .2s ease-out both; }
+.tag-manager-card { width: min(400px, 100%); display: flex; flex-direction: column; max-height: 80vh; border: 1px solid rgba(255,255,255,.72); border-radius: 16px; padding: 22px; background: var(--paper); box-shadow: 0 26px 80px rgba(36,55,53,.28); animation: modal-card-in .28s cubic-bezier(.22,1,.36,1) both; }
+.tag-manager-head { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.tag-manager-head h2 { margin: 6px 0 0; font-size: 22px; font-weight: 500; letter-spacing: -.04em; }
+.tag-manager-close { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; transition: color .12s; flex-shrink: 0; }
+.tag-manager-close:hover { color: var(--ink); }
+.tag-manager-search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px 11px; margin-bottom: 14px; background: #f1f0eb; color: var(--muted); }
+.tag-manager-search input { flex: 1; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 12px; }
+.tag-manager-search input::placeholder { color: #9aa59f; }
+.tag-manager-body { flex: 1; overflow-y: auto; min-height: 100px; }
+.tag-manager-loading { display: grid; place-items: center; padding: 40px 0; }
+.tag-manager-list { display: flex; flex-direction: column; gap: 4px; }
+.tag-manager-item { display: flex; align-items: center; gap: 8px; width: 100%; border: 1px solid transparent; border-radius: 8px; padding: 9px 10px; background: transparent; color: var(--ink); text-align: left; cursor: pointer; transition: background .1s, border-color .1s; }
+.tag-manager-item:hover { background: rgba(63,130,144,.05); border-color: rgba(63,130,144,.18); }
+.tag-manager-item svg { flex-shrink: 0; color: var(--muted); }
+.tag-manager-item-name { font-size: 13px; font-weight: 600; }
+.tag-manager-item-count { margin-left: auto; color: var(--muted); font-size: 10px; white-space: nowrap; }
+.tag-manager-empty { padding: 30px 0; color: var(--muted); font-size: 11px; text-align: center; }
+
 /* ─── Tag Input ─────────────────────────────────────────────── */
 
 .tag-input {
@@ -3372,6 +3393,10 @@ button {
 .tag-input-field::placeholder {
   color: #9aa59f;
 }
+.tag-input-wrap { position: relative; }
+.tag-suggestions { position: absolute; z-index: 80; top: 100%; left: 0; right: 0; margin-top: 2px; display: flex; flex-wrap: wrap; gap: 4px; border: 1px solid var(--line); border-radius: 8px; padding: 6px; background: var(--paper); box-shadow: 0 8px 24px rgba(36,55,53,.14); }
+.tag-suggestion { border: 1px solid var(--line); border-radius: 5px; padding: 4px 9px; background: transparent; color: var(--ink); font-size: 10px; font-weight: 600; cursor: pointer; transition: background .1s, border-color .1s; }
+.tag-suggestion:hover { background: rgba(63,130,144,.07); border-color: rgba(63,130,144,.3); }
 
 /* ─── Tag Display (read-only tag list) ──────────────────────── */
 
