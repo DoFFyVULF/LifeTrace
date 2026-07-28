@@ -303,15 +303,7 @@ button {
   width: 100%;
   min-height: 1px;
 }
-.thread-overlay {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  height: 100%;
-  width: 100%;
-  pointer-events: none;
-  overflow: visible;
-}
+
 .thread-overlay-shadow {
   fill: none;
   stroke: rgba(255, 241, 237, 0.96);

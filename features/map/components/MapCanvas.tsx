@@ -5,40 +5,20 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { isMediaSrc } from "@/lib/media";
 
-// Symbol icons for custom pins
 function getSymbolIcon(symbol: string): string {
   const icons: Record<string, string> = {
-    pin: "📍",
-    heart: "♥",
-    star: "★",
-    flag: "🚩",
-    diamond: "◆",
-    square: "■",
-    circle: "●",
-    home: "🏠",
-    camera: "📷",
-    music: "♪",
+    pin: "📍", heart: "♥", star: "★", flag: "🚩",
+    diamond: "◆", square: "■", circle: "●",
+    home: "🏠", camera: "📷", music: "♪",
   };
   return icons[symbol] || "📍";
 }
 
 export type Memory = {
-  id: string;
-  title: string;
-  place: string;
-  date: string;
-  year: string;
-  lng: number;
-  lat: number;
-  color: string;
-  kind: string;
-  image: string;
-  media?: string[];
-  favorite?: boolean;
-  symbol?: string;
-  city?: string | null;
-  country?: string | null;
-  tags?: string[];
+  id: string; title: string; place: string; date: string; year: string;
+  lng: number; lat: number; color: string; kind: string; image: string;
+  media?: string[]; favorite?: boolean; symbol?: string;
+  city?: string | null; country?: string | null; tags?: string[];
 };
 export type MemoryThread = { id: string; memoryIds: string[] };
 
@@ -80,26 +60,15 @@ const style: maplibregl.StyleSpecification = {
     },
   ],
 };
+
 const threadPalette = [
-  "#c6535b",
-  "#8b6bb3",
-  "#3f8290",
-  "#b47b3f",
-  "#668d68",
-  "#9a6480",
+  "#c6535b", "#8b6bb3", "#3f8290",
+  "#b47b3f", "#668d68", "#9a6480",
 ];
 
 export function MapCanvas({
-  memories,
-  threadMemories,
-  selectedId,
-  onSelect,
-  showGrid,
-  showThreads,
-  vivid,
-  threads,
-  onMapClick,
-  linkingIds,
+  memories, threadMemories, selectedId, onSelect,
+  showGrid, showThreads, vivid, threads, onMapClick, linkingIds,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -108,7 +77,19 @@ export function MapCanvas({
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSelectRef = useRef(onSelect);
   const [mapReady, setMapReady] = useState(false);
-  const [mapVersion, setMapVersion] = useState(0);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
+
+  // Кэш размеров canvas — обновляется только при resize
+  const canvasSizeRef = useRef({ w: 0, h: 0, dpr: 1 });
+
+  const setCanvasRef = useCallback((el: HTMLCanvasElement | null) => {
+    canvasRef.current = el;
+    ctxRef.current = el?.getContext("2d", { willReadFrequently: false }) ?? null;
+  }, []);
+
+  const threadDataRef = useRef<{ memories: Memory[]; color: string }[]>([]);
+
   const visibleThreads = useMemo(() => {
     const preview =
       linkingIds.length > 1
@@ -116,17 +97,115 @@ export function MapCanvas({
         : [];
     return [...threads, ...preview];
   }, [threads, linkingIds]);
-  const updateThreadOverlay = useCallback(
-    () => setMapVersion((version) => version + 1),
-    [],
-  );
 
   useEffect(() => {
     onSelectRef.current = onSelect;
   }, [onSelect]);
 
+  // ──────────────────────────────────────────────
+  // drawThreads — синхронная, без rAF-обёртки
+  // ──────────────────────────────────────────────
+  const drawThreads = useCallback(() => {
+    const map = mapRef.current;
+    const ctx = ctxRef.current;
+    const canvas = canvasRef.current;
+    if (!map || !ctx || !canvas) return;
+
+    const data = threadDataRef.current;
+    const { w, h, dpr } = canvasSizeRef.current;
+    if (!w || !h) return;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cw = w / dpr;
+    const ch = h / dpr;
+    ctx.clearRect(0, 0, cw, ch);
+
+    if (!data.length) return;
+
+    for (const seg of data) {
+      const pts = seg.memories.map((m) => map.project([m.lng, m.lat]));
+
+      // Culling: нить целиком за экраном
+      const allOff = pts.every(
+        (p) => p.x < -50 || p.x > cw + 50 || p.y < -50 || p.y > ch + 50,
+      );
+      if (allOff) continue;
+
+      // Тень
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.strokeStyle = "rgba(255, 241, 237, 0.96)";
+      ctx.lineWidth = 10;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.stroke();
+
+      // Пунктир
+      ctx.beginPath();
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.strokeStyle = seg.color;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([2, 10]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Узлы
+      for (const p of pts) {
+        if (p.x < -20 || p.x > cw + 20 || p.y < -20 || p.y > ch + 20) continue;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = seg.color;
+        ctx.fill();
+        ctx.strokeStyle = "#fff7f2";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+  }, []);
+
+  // Build thread data
+  useEffect(() => {
+    threadDataRef.current = (() => {
+      if (!showThreads) return [];
+      const result: { memories: Memory[]; color: string }[] = [];
+      for (const thread of visibleThreads) {
+        const mems: Memory[] = [];
+        for (const id of thread.memoryIds) {
+          const memory = threadMemories.find((m) => m.id === id);
+          if (memory) mems.push(memory);
+        }
+        if (mems.length < 2) continue;
+        result.push({ memories: mems, color: mems[0]?.color || threadPalette[0] });
+      }
+      return result;
+    })();
+    drawThreads();
+  }, [showThreads, visibleThreads, threadMemories, drawThreads]);
+
+  // Обновление кэша размеров canvas
+  const updateCanvasSize = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.parentElement?.getBoundingClientRect();
+    if (!rect) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.round(rect.width * dpr);
+    const h = Math.round(rect.height * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    canvasSizeRef.current = { w, h, dpr };
+  }, []);
+
+  // ──────────────────────────────────────────────
+  // Init map
+  // ──────────────────────────────────────────────
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+
     const map = new maplibregl.Map({
       container: containerRef.current,
       style,
@@ -135,33 +214,45 @@ export function MapCanvas({
       minZoom: 1.4,
       maxZoom: 18,
       attributionControl: { compact: true },
+      fadeDuration: 0,
     });
-    map.addControl(
-      new maplibregl.NavigationControl({ showCompass: true }),
-      "bottom-right",
-    );
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
     map.addControl(new maplibregl.FullscreenControl(), "bottom-right");
+
     map.on("click", (event) => {
       const target = event.originalEvent.target;
-      if (target instanceof HTMLElement && target.closest(".real-map-pin"))
-        return;
+      if (target instanceof HTMLElement && target.closest(".real-map-pin")) return;
       onMapClick(event.lngLat.lng, event.lngLat.lat);
     });
+
     map.on("load", () => {
+      updateCanvasSize();
       requestAnimationFrame(() => map.resize());
       setTimeout(() => map.resize(), 250);
       setMapReady(true);
-      updateThreadOverlay();
+      drawThreads();
     });
-    map.on("move", updateThreadOverlay);
+
+    // ── КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ──
+    // Рисуем СИНХРОННО на "move".
+    // MapLibre fires "move" ровно 1 раз за кадр (внутри своего rAF),
+    // и map.project() уже возвращает актуальные координаты.
+    // Никакой rAF-обёртки — она добавляла задержку на 1 кадр,
+    // из-за чего canvas «отставал» от DOM-маркеров.
+    map.on("move", drawThreads);
+
     const resizeObserver = new ResizeObserver(() => {
       map.resize();
-      updateThreadOverlay();
+      updateCanvasSize();
+      drawThreads();
     });
     resizeObserver.observe(containerRef.current);
+
     const resizeMap = () => {
       map.resize();
-      updateThreadOverlay();
+      updateCanvasSize();
+      drawThreads();
     };
     requestAnimationFrame(() => {
       resizeMap();
@@ -169,47 +260,65 @@ export function MapCanvas({
     });
     const initialResize = window.setTimeout(resizeMap, 500);
     window.addEventListener("resize", resizeMap);
+
     mapRef.current = map;
+
     return () => {
       window.clearTimeout(initialResize);
       window.removeEventListener("resize", resizeMap);
       resizeObserver.disconnect();
-      map.off("move", updateThreadOverlay);
-      markersRef.current.forEach((marker) => marker.remove());
-      dyingMarkersRef.current.forEach((marker) => marker.remove());
+      map.off("move", drawThreads);
+      markersRef.current.forEach((m) => m.remove());
+      dyingMarkersRef.current.forEach((m) => m.remove());
       map.remove();
       mapRef.current = null;
     };
-  }, [onMapClick, updateThreadOverlay]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onMapClick]);
 
+  // flyTo selected
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady || !selectedId) return;
     const memory = threadMemories.find((item) => item.id === selectedId);
-    if (memory) map.flyTo({ center: [memory.lng, memory.lat], zoom: Math.max(map.getZoom(), 5.2), duration: 1100, essential: true });
+    if (memory)
+      map.flyTo({
+        center: [memory.lng, memory.lat],
+        zoom: Math.max(map.getZoom(), 5.2),
+        duration: 1100,
+        essential: true,
+      });
   }, [selectedId, threadMemories, mapReady]);
 
+  // focus event
   useEffect(() => {
     const focus = (event: Event) => {
       const map = mapRef.current;
-      const memory = threadMemories.find((item) => item.id === (event as CustomEvent<string>).detail);
-      if (map && memory) map.flyTo({ center: [memory.lng, memory.lat], zoom: Math.max(map.getZoom(), 5.2), duration: 1100, essential: true });
+      const memory = threadMemories.find(
+        (item) => item.id === (event as CustomEvent<string>).detail,
+      );
+      if (map && memory)
+        map.flyTo({
+          center: [memory.lng, memory.lat],
+          zoom: Math.max(map.getZoom(), 5.2),
+          duration: 1100,
+          essential: true,
+        });
     };
     window.addEventListener("life-trace-focus-memory", focus);
     return () => window.removeEventListener("life-trace-focus-memory", focus);
   }, [threadMemories]);
 
+  // Markers
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
 
-    // Cancel pending removal of old markers from a previous cycle
     if (fadeTimerRef.current !== null) {
       clearTimeout(fadeTimerRef.current);
       fadeTimerRef.current = null;
     }
 
-    // Move current markers to dying queue and fade them out
     const oldMarkers = markersRef.current;
     markersRef.current = [];
 
@@ -218,19 +327,16 @@ export function MapCanvas({
       el.style.transition = "opacity 0.3s ease";
       el.style.opacity = "0";
     });
-
     dyingMarkersRef.current.push(...oldMarkers);
 
-    // Schedule removal of dying markers after fade completes
     if (dyingMarkersRef.current.length) {
       fadeTimerRef.current = setTimeout(() => {
-        dyingMarkersRef.current.forEach((marker) => marker.remove());
+        dyingMarkersRef.current.forEach((m) => m.remove());
         dyingMarkersRef.current = [];
         fadeTimerRef.current = null;
       }, 350);
     }
 
-    // Create new markers with fade-in
     memories.forEach((memory) => {
       const element = document.createElement("button");
       element.type = "button";
@@ -240,35 +346,31 @@ export function MapCanvas({
       element.dataset.memoryId = memory.id;
       element.dataset.memoryYear = memory.year || "";
 
-      // Render custom symbol based on memory.symbol
       if (sym === "pin") {
         element.innerHTML = `<span class="pin-orbit-ring"><span class="pin-orbit pin-orbit--one"></span><span class="pin-orbit pin-orbit--two"></span><span class="pin-orbit pin-orbit--three"></span></span>`;
       } else {
         element.innerHTML = `<span class="pin-symbol">${getSymbolIcon(sym)}</span>`;
       }
-      const orbitImages = (
-        memory.media?.filter((src) => isMediaSrc(src)) ?? []
-      ).slice(0, 3);
+
+      const orbitImages = (memory.media?.filter((src) => isMediaSrc(src)) ?? []).slice(0, 3);
       const cover = isMediaSrc(memory.image) ? memory.image : "";
-      element
-        .querySelectorAll<HTMLElement>(".pin-orbit")
-        .forEach((orbit, index) => {
-          const image = orbitImages[index] || orbitImages[0] || cover;
-          if (image)
-            orbit.style.backgroundImage = `linear-gradient(145deg, rgba(36,55,53,.05), rgba(36,55,53,.22)), url("${image}")`;
-          orbit.setAttribute(
-            "aria-label",
-            `${memory.title}${memory.place ? `, ${memory.place}` : ""}`,
-          );
-        });
+      element.querySelectorAll<HTMLElement>(".pin-orbit").forEach((orbit, index) => {
+        const image = orbitImages[index] || orbitImages[0] || cover;
+        if (image)
+          orbit.style.backgroundImage = `linear-gradient(145deg, rgba(36,55,53,.05), rgba(36,55,53,.22)), url("${image}")`;
+        orbit.setAttribute("aria-label", `${memory.title}${memory.place ? `, ${memory.place}` : ""}`);
+      });
+
       element.setAttribute("aria-label", memory.title);
-      const stopMapInteraction = (event: Event) => event.stopPropagation();
-      element.addEventListener("pointerdown", stopMapInteraction);
-      element.addEventListener("pointermove", stopMapInteraction);
-      element.addEventListener("mousedown", stopMapInteraction);
-      element.addEventListener("dblclick", stopMapInteraction);
-      element.onclick = (event) => {
-        event.stopPropagation();
+
+      const stop = (e: Event) => e.stopPropagation();
+      element.addEventListener("pointerdown", stop);
+      element.addEventListener("pointermove", stop);
+      element.addEventListener("mousedown", stop);
+      element.addEventListener("dblclick", stop);
+
+      element.onclick = (e) => {
+        e.stopPropagation();
         onSelectRef.current(memory);
         map.flyTo({
           center: [memory.lng, memory.lat],
@@ -276,6 +378,7 @@ export function MapCanvas({
           duration: 900,
         });
       };
+
       element.style.opacity = "0";
       markersRef.current.push(
         new maplibregl.Marker({ element, anchor: "center" })
@@ -284,78 +387,19 @@ export function MapCanvas({
       );
     });
 
-    // Animate new markers in: opacity 0 → 1 with transition
     requestAnimationFrame(() => {
       markersRef.current.forEach((marker) => {
         const el = marker.getElement();
         el.style.transition = "opacity 0.35s ease";
         el.style.opacity = "1";
       });
-    });
-    const threadId = "memory-threads";
-    const threadLines = visibleThreads.flatMap((thread) => {
-      const points = thread.memoryIds
-        .map((id) => threadMemories.find((memory) => memory.id === id))
-        .filter((memory): memory is Memory => Boolean(memory));
-      return points.length > 1
-        ? [
-            {
-              type: "Feature" as const,
-              properties: { id: thread.id },
-              geometry: {
-                type: "LineString" as const,
-                coordinates: points.map((memory) => [memory.lng, memory.lat]),
-              },
-            },
-          ]
-        : [];
-    });
-    const threadData = {
-      type: "FeatureCollection" as const,
-      features: threadLines,
-    };
-    const drawThreads = () => {
-      if (map.getSource(threadId))
-        (map.getSource(threadId) as maplibregl.GeoJSONSource).setData(
-          threadData,
-        );
-      else {
-        map.addSource(threadId, { type: "geojson", data: threadData });
-        map.addLayer({
-          id: `${threadId}-shadow`,
-          type: "line",
-          source: threadId,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": "#fff1ed",
-            "line-width": 7,
-            "line-opacity": showThreads ? 0.88 : 0,
-          },
+      setTimeout(() => {
+        markersRef.current.forEach((marker) => {
+          marker.getElement().style.transition = "none";
         });
-        map.addLayer({
-          id: threadId,
-          type: "line",
-          source: threadId,
-          layout: { "line-cap": "round", "line-join": "round" },
-          paint: {
-            "line-color": "#c53f4a",
-            "line-width": 3.5,
-            "line-dasharray": [1.2, 1.6],
-            "line-opacity": showThreads ? 1 : 0,
-          },
-        });
-      }
-    };
-    if (map.isStyleLoaded()) drawThreads();
-    else map.once("load", drawThreads);
-    if (map.getLayer(`${threadId}-shadow`))
-      map.setPaintProperty(
-        `${threadId}-shadow`,
-        "line-opacity",
-        showThreads ? 0.88 : 0,
-      );
-    if (map.getLayer(threadId))
-      map.setPaintProperty(threadId, "line-opacity", showThreads ? 1 : 0);
+      }, 400);
+    });
+
     return () => {
       if (fadeTimerRef.current !== null) {
         clearTimeout(fadeTimerRef.current);
@@ -364,39 +408,17 @@ export function MapCanvas({
       dyingMarkersRef.current.forEach((m) => m.remove());
       dyingMarkersRef.current = [];
     };
-  }, [
-    memories,
-    threadMemories,
-    showThreads,
-    visibleThreads,
-    linkingIds,
-    mapReady,
-  ]);
+  }, [memories, linkingIds, mapReady]);
 
+  // Selected highlight
   useEffect(() => {
     markersRef.current.forEach((marker) => {
-      const element = marker.getElement();
-      element.classList.toggle("is-active", element.dataset.memoryId === selectedId);
+      marker.getElement().classList.toggle(
+        "is-active",
+        marker.getElement().dataset.memoryId === selectedId,
+      );
     });
   }, [selectedId, mapReady]);
-
-  const overlayPaths = useMemo(() => {
-    const map = mapRef.current;
-    if (!map || !mapReady || !showThreads) return [];
-    return visibleThreads.flatMap((thread) => {
-      const points = thread.memoryIds
-        .map((id) => threadMemories.find((memory) => memory.id === id))
-        .filter((memory): memory is Memory => Boolean(memory));
-      if (points.length < 2) return [];
-      return [
-        {
-          points: points.map((memory) => map.project([memory.lng, memory.lat])),
-          memories: points,
-          color: points[0]?.color || threadPalette[0],
-        },
-      ];
-    });
-  }, [mapReady, mapVersion, showThreads, threadMemories, visibleThreads]);
 
   return (
     <div
@@ -404,40 +426,18 @@ export function MapCanvas({
       aria-label="Реальная интерактивная карта воспоминаний"
     >
       <div className="maplibre-host" ref={containerRef} />
-      {overlayPaths.length > 0 && (
-        <svg className="thread-overlay" aria-hidden="true">
-          {overlayPaths.map(({ points, memories: connectedMemories, color }, index) => {
-            return (
-              <g key={index}>
-                <polyline
-                  className="thread-overlay-shadow"
-                  points={points
-                    .map((point) => `${point.x},${point.y}`)
-                    .join(" ")}
-                />
-                <polyline
-                  className="thread-overlay-line"
-                  style={{ stroke: color }}
-                  points={points
-                    .map((point) => `${point.x},${point.y}`)
-                    .join(" ")}
-                />
-                {points.map((point, pointIndex) => (
-                  <circle
-                    key={`${index}-${pointIndex}`}
-                    className="thread-overlay-node"
-                    cx={point.x}
-                    cy={point.y}
-                    r="8"
-                    fill={color}
-                    stroke={connectedMemories[pointIndex].color}
-                  />
-                ))}
-              </g>
-            );
-          })}
-        </svg>
-      )}
+      <canvas
+        ref={setCanvasRef}
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          pointerEvents: "none",
+          zIndex: 2,
+        }}
+      />
     </div>
   );
 }

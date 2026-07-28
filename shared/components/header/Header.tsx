@@ -187,7 +187,7 @@ export function Header() {
                             <span key={tag} className="header-search-tag">{tag}</span>
                           ))}
                           {(memory.tags ?? []).length > 3 && (
-                            <span className="header-search-tag header-search-tag--more">+{memory.tags.length - 3}</span>
+                            <span className="header-search-tag header-search-tag--more">+{(memory.tags ?? []).length - 3}</span>
                           )}
                         </span>
                         <span className="header-search-card-meta">

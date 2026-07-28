@@ -83,6 +83,7 @@ export function Map() {
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const stableLinkingIds = useMemo(() => linkingIds ?? [], [linkingIds]);
   const selectedRef = useRef<string | null>(null);
   const memoriesRef = useRef<Memory[]>(memories);
   const addModeRef = useRef(false);
@@ -793,7 +794,7 @@ export function Map() {
         vivid={vivid}
         threads={threads}
         onMapClick={handleMapClick}
-        linkingIds={linkingIds ?? []}
+        linkingIds={stableLinkingIds}
       />
       <div className="map-topbar">
         <div className="view-switch">
