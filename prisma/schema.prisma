@@ -48,5 +48,6 @@ model Profile {
   id         String   @id @default("singleton")
   name       String   @default("")
   avatarPath String?                // /api/media/… URL for avatar
+  knownTags  String[] @default([])  // user-created tags that may not be on any memory yet
   updatedAt  DateTime @updatedAt
 }

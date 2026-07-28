@@ -261,9 +261,9 @@ export function Header() {
         open={tagManagerOpen}
         onClose={() => setTagManagerOpen(false)}
         onSelectTag={(tag) => {
-          setSearchQuery(`#${tag}`);
+          setSearchQuery(tag);
           window.dispatchEvent(
-            new CustomEvent("life-trace-search", { detail: `#${tag}` }),
+            new CustomEvent("life-trace-search", { detail: tag }),
           );
         }}
       />

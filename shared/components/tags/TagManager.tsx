@@ -1,6 +1,6 @@
 "use client";
 
-import { Hash, Search, X } from "lucide-react";
+import { Hash, Plus, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
@@ -16,16 +16,21 @@ type TagManagerProps = {
   onSelectTag?: (tag: string) => void;
 };
 
+const TAG_REGEX = /^[a-zA-Zа-яА-ЯёЁ0-9_\-+#]+$/;
+
 /**
  * TagManager modal — shows all tags in the system with usage counts.
- * Clicking a tag dispatches a filter event so the map highlights
- * memories that have that tag.
+ * Allows creating new tags (stored in the profile's known-tags list)
+ * and deleting tags globally (removed from all memories + known tags).
  */
 export function TagManager({ open, onClose, onSelectTag }: TagManagerProps) {
   const { t } = useLocale();
   const [tags, setTags] = useState<TagEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [newTag, setNewTag] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const fetchTags = useCallback(async () => {
     setLoading(true);
@@ -43,7 +48,12 @@ export function TagManager({ open, onClose, onSelectTag }: TagManagerProps) {
   }, []);
 
   useEffect(() => {
-    if (open) void fetchTags();
+    if (open) {
+      void fetchTags();
+      setSearch("");
+      setNewTag("");
+      setDeleteConfirm(null);
+    }
   }, [open, fetchTags]);
 
   const filtered = search.trim()
@@ -55,6 +65,44 @@ export function TagManager({ open, onClose, onSelectTag }: TagManagerProps) {
       onSelectTag(tag);
     }
     onClose();
+  };
+
+  const handleCreate = async () => {
+    const tag = newTag.trim().toLowerCase();
+    if (!tag || !TAG_REGEX.test(tag)) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch("/api/tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: tag }),
+      });
+      if (res.ok) {
+        setNewTag("");
+        await fetchTags();
+      }
+    } catch {
+      // silent
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDelete = async (tag: string) => {
+    setActionLoading(true);
+    try {
+      const res = await fetch(`/api/tags?name=${encodeURIComponent(tag)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setDeleteConfirm(null);
+        await fetchTags();
+      }
+    } catch {
+      // silent
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   if (!open) return null;
@@ -84,6 +132,31 @@ export function TagManager({ open, onClose, onSelectTag }: TagManagerProps) {
           </button>
         </div>
 
+        {/* Create new tag */}
+        <div className="tag-manager-create">
+          <input
+            type="text"
+            placeholder={t("tags.placeholder")}
+            value={newTag}
+            onChange={(e) => setNewTag(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void handleCreate();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="tag-manager-create-btn"
+            disabled={!newTag.trim() || actionLoading}
+            onClick={handleCreate}
+          >
+            <Plus size={13} />
+          </button>
+        </div>
+
+        {/* Search existing */}
         <label className="tag-manager-search">
           <Search size={13} />
           <input
@@ -91,7 +164,6 @@ export function TagManager({ open, onClose, onSelectTag }: TagManagerProps) {
             placeholder={t("tags.manager.search")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            autoFocus
           />
         </label>
 
@@ -103,18 +175,47 @@ export function TagManager({ open, onClose, onSelectTag }: TagManagerProps) {
           ) : filtered.length > 0 ? (
             <div className="tag-manager-list">
               {filtered.map((tag) => (
-                <button
-                  key={tag.name}
-                  type="button"
-                  className="tag-manager-item"
-                  onClick={() => handleTagClick(tag.name)}
-                >
-                  <Hash size={12} />
-                  <span className="tag-manager-item-name">{tag.name}</span>
-                  <span className="tag-manager-item-count">
-                    {tag.count} {tag.count === 1 ? t("tags.manager.memory") : t("tags.manager.memories")}
-                  </span>
-                </button>
+                <div key={tag.name} className="tag-manager-item-row">
+                  <button
+                    type="button"
+                    className="tag-manager-item"
+                    onClick={() => handleTagClick(tag.name)}
+                  >
+                    <Hash size={12} />
+                    <span className="tag-manager-item-name">{tag.name}</span>
+                    <span className="tag-manager-item-count">
+                      {tag.count} {tag.count === 1 ? t("tags.manager.memory") : t("tags.manager.memories")}
+                    </span>
+                  </button>
+                  {deleteConfirm === tag.name ? (
+                    <div className="tag-manager-delete-confirm">
+                      <button
+                        type="button"
+                        className="tag-manager-delete-yes"
+                        disabled={actionLoading}
+                        onClick={() => handleDelete(tag.name)}
+                      >
+                        {t("map.delete.permanently")}
+                      </button>
+                      <button
+                        type="button"
+                        className="tag-manager-delete-no"
+                        onClick={() => setDeleteConfirm(null)}
+                      >
+                        {t("map.cancel")}
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="tag-manager-delete-btn"
+                      aria-label={`Delete tag ${tag.name}`}
+                      onClick={() => setDeleteConfirm(tag.name)}
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  )}
+                </div>
               ))}
             </div>
           ) : (
