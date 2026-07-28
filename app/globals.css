@@ -77,7 +77,7 @@ button {
 }
 .header-actions {
   display: flex;
-  width: 220px;
+  width: 260px;
   justify-content: flex-end;
   gap: 9px;
 }
@@ -98,6 +98,7 @@ button {
   padding: 0 13px;
   background: var(--ink);
   color: #f4f1eb;
+  white-space: nowrap;
 }
 .header-actions .icon-button {
   width: 36px;
