@@ -128,6 +128,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "map.save.failed": "Failed to save memory.",
     "map.image.failed": "Failed to upload image.",
     "map.import.hint": "Drop an image: JPG, PNG, WebP, GIF, AVIF or HEIC",
+    "map.gps.conflict.title": "MIXED LOCATIONS",
+    "map.gps.conflict.heading": "Photos have different locations",
+    "map.gps.conflict.desc": "{count} photos have GPS coordinates that don't match. How would you like to organize them?",
+    "map.gps.conflict.merge": "Create one memory",
+    "map.gps.conflict.merge.hint": "All photos go into a single memory",
+    "map.gps.conflict.split": "Split by location",
+    "map.gps.conflict.split.hint": "Create a separate memory for each location",
 
     // Memory page
     "memory.back": "Back to atlas",
@@ -375,6 +382,13 @@ export const translations: Record<Locale, Record<string, string>> = {
     "map.save.failed": "Не удалось сохранить воспоминание.",
     "map.image.failed": "Не удалось загрузить изображение.",
     "map.import.hint": "Перетащите изображение: JPG, PNG, WebP, GIF, AVIF или HEIC",
+    "map.gps.conflict.title": "РАЗНЫЕ МЕСТА",
+    "map.gps.conflict.heading": "Фото сделаны в разных местах",
+    "map.gps.conflict.desc": "У {count} фото координаты не совпадают. Как организовать их?",
+    "map.gps.conflict.merge": "Одно воспоминание",
+    "map.gps.conflict.merge.hint": "Все фото в одном воспоминании",
+    "map.gps.conflict.split": "Разделить по местам",
+    "map.gps.conflict.split.hint": "Создать отдельное воспоминание для каждого места",
 
     // Memory page
     "memory.back": "Назад к атласу",

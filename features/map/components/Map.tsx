@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
+import { processFileMetadata, type FileMetadataResult } from "@/lib/photo-metadata.client";
+import { isPhotoFile } from "@/lib/photo-metadata";
 import type { Memory, MemoryThread } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
 import { getRandomMemoryColor, mixColors, PIN_SYMBOLS, type PinSymbol } from "@/lib/colors";
@@ -38,145 +40,7 @@ const emptyForm: FormData = {
   country: "",
   tags: [],
 };
-const toDateValue = (value: string | undefined, fallback: number) => {
-  if (!value) return new Date(fallback).toISOString().slice(0, 10);
-  const match = value.match(/(\d{4})[:/-](\d{2})[:/-](\d{2})/);
-  return match
-    ? `${match[1]}-${match[2]}-${match[3]}`
-    : new Date(fallback).toISOString().slice(0, 10);
-};
-const readPhotoMetadata = async (
-  file: File,
-): Promise<{ date: string; lat?: number; lng?: number }> => {
-  const fallback = file.lastModified || Date.now();
-  try {
-    const { parse } = await import("exifr");
-    const parsed = await parse(file);
-    const parsedDate =
-      parsed?.DateTimeOriginal || parsed?.CreateDate || parsed?.ModifyDate;
-    const lat =
-      typeof parsed?.latitude === "number" ? parsed.latitude : undefined;
-    const lng =
-      typeof parsed?.longitude === "number" ? parsed.longitude : undefined;
-    if (parsedDate || lat !== undefined || lng !== undefined)
-      return {
-        date: toDateValue(
-          parsedDate instanceof Date
-            ? parsedDate.toISOString()
-            : String(parsedDate || ""),
-          fallback,
-        ),
-        lat,
-        lng,
-      };
-  } catch {
-    /* fall through to the small JPEG parser */
-  }
-  if (
-    !file.type.includes("jpeg") &&
-    !file.type.includes("jpg") &&
-    !/\.(jpg|jpeg)$/i.test(file.name)
-  )
-    return { date: toDateValue(undefined, fallback) };
-  try {
-    const bytes = new DataView(await file.arrayBuffer());
-    let exif = -1;
-    for (let offset = 2; offset < bytes.byteLength - 10; ) {
-      if (
-        bytes.getUint8(offset) === 0xff &&
-        bytes.getUint8(offset + 1) === 0xe1
-      ) {
-        const segmentEnd = offset + 2 + bytes.getUint16(offset + 2, false);
-        if (bytes.getUint32(offset + 4, false) === 0x45786966) {
-          exif = offset + 4;
-          break;
-        }
-        offset = segmentEnd;
-      } else offset += 1;
-    }
-    if (exif < 0 || bytes.getUint32(exif, false) !== 0x45786966)
-      return { date: toDateValue(undefined, fallback) };
-    const tiff = exif + 6;
-    const little = bytes.getUint16(tiff, false) === 0x4949;
-    const u16 = (at: number) => bytes.getUint16(at, little);
-    const u32 = (at: number) => bytes.getUint32(at, little);
-    const typeSize = (type: number) => (type === 3 ? 2 : type === 4 ? 4 : 1);
-    const readAscii = (at: number, count: number) =>
-      Array.from({ length: count }, (_, index) =>
-        String.fromCharCode(bytes.getUint8(at + index)),
-      )
-        .join("")
-        .replace(/\0/g, "")
-        .trim();
-    const valueAt = (entry: number, type: number, count: number) => {
-      const size = typeSize(type) * count;
-      const pointer = size <= 4 ? entry + 8 : tiff + u32(entry + 8);
-      return type === 2
-        ? readAscii(pointer, count)
-        : type === 5
-          ? [u32(pointer) / Math.max(1, u32(pointer + 4))]
-          : [];
-    };
-    const ifd = (offset: number) => {
-      const result = new globalThis.Map<
-        number,
-        { type: number; count: number; entry: number }
-      >();
-      const count = u16(offset);
-      for (let index = 0; index < count; index += 1) {
-        const entry = offset + 2 + index * 12;
-        result.set(u16(entry), {
-          type: u16(entry + 2),
-          count: u32(entry + 4),
-          entry,
-        });
-      }
-      return result;
-    };
-    const main = ifd(tiff + u32(tiff + 4));
-    const dateEntry = main.get(0x9003) || main.get(0x0132);
-    const date = dateEntry
-      ? String(valueAt(dateEntry.entry, dateEntry.type, dateEntry.count))
-      : toDateValue(undefined, fallback);
-    const gpsPointer = main.get(0x8825);
-    if (!gpsPointer) return { date: toDateValue(date, fallback) };
-    const gpsOffset = tiff + u32(gpsPointer.entry + 8);
-    const gps = ifd(gpsOffset);
-    const readRef = (tag: number) => {
-      const entry = gps.get(tag);
-      return entry ? readAscii(entry.entry + 8, 1) : "";
-    };
-    const readCoord = (tag: number) => {
-      const entry = gps.get(tag);
-      if (!entry) return [];
-      const pointer = tiff + u32(entry.entry + 8);
-      return [0, 1, 2].map((index) => {
-        const at = pointer + index * 8;
-        return u32(at) / Math.max(1, u32(at + 4));
-      });
-    };
-    const lat = readCoord(2);
-    const lng = readCoord(4);
-    return {
-      date: toDateValue(date, fallback),
-      lat:
-        lat.length === 3
-          ? (lat[0] + lat[1] / 60 + lat[2] / 3600) *
-            (readRef(1) === "S" ? -1 : 1)
-          : undefined,
-      lng:
-        lng.length === 3
-          ? (lng[0] + lng[1] / 60 + lng[2] / 3600) *
-            (readRef(3) === "W" ? -1 : 1)
-          : undefined,
-    };
-  } catch {
-    return { date: toDateValue(undefined, fallback) };
-  }
-};
-const isSupportedPhoto = (file: File) =>
-  file.type.startsWith("image/") ||
-  /\.(heic|heif|jpg|jpeg|png|webp|gif|avif|bmp|tif|tiff)$/i.test(file.name);
+
 
 export function Map() {
   const { t, locale } = useLocale();
@@ -194,7 +58,11 @@ export function Map() {
   const [linkingIds, setLinkingIds] = useState<string[] | null>(null);
   const [addMode, setAddMode] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [importing, setImporting] = useState(false);
+  const [importing, setImporting] = useState<{
+    done: number;
+    total: number;
+    fileName: string;
+  } | null>(null);
   const [importToast, setImportToast] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Memory | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -204,6 +72,10 @@ export function Map() {
     media: string[];
     title: string;
     date: string;
+  } | null>(null);
+  const [gpsConflict, setGpsConflict] = useState<{
+    entries: FileMetadataResult[];
+    photos: File[];
   } | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [pickingLocation, setPickingLocation] = useState<FormData | null>(null);
@@ -380,6 +252,7 @@ export function Map() {
     });
   const openEdit = (memory: Memory) => {
     setEditingId(memory.id);
+    pendingMediaRef.current = memory.media ?? null;
     setForm({
       title: memory.title,
       place: memory.place,
@@ -461,6 +334,10 @@ export function Map() {
   };
   const startEdit = (memory: Memory) => {
     setEditingId(memory.id);
+    // Preserve existing media so "Pick on map" + save doesn't
+    // lose photos that aren't the cover image (see save() — it reads
+    // pendingMediaRef.current to build the PATCH body).
+    pendingMediaRef.current = memory.media ?? null;
     setForm({
       title: memory.title,
       place: memory.place,
@@ -556,83 +433,209 @@ export function Map() {
     setAddMode(false);
     openCreate(lng, lat, city, country);
   }, [locale]);
-  const importPhotos = async (files: File[]) => {
-    const photos = files.filter(isSupportedPhoto);
-    if (!photos.length) {
-      setImportToast(
-        t("map.import.hint"),
-      );
+
+  // ── GPS conflict helpers ────────────────────────────────────────────────
+
+  /** Round coords to ~0.1° (~10 km) for grouping. */
+  const coordGroupKey = (lat: number, lng: number) =>
+    `${(lat * 10).toFixed(0)}_${(lng * 10).toFixed(0)}`;
+
+  /** Returns true when entries have more than one distinct GPS cluster. */
+  const hasMixedGps = (
+    entries: { metadata: { lat?: number; lng?: number } }[],
+  ) => {
+    const keys = new Set<string>();
+    for (const e of entries) {
+      if (e.metadata.lat !== undefined && e.metadata.lng !== undefined) {
+        keys.add(coordGroupKey(e.metadata.lat, e.metadata.lng));
+      }
+    }
+    return keys.size > 1;
+  };
+
+  /** Create a memory from a subset of entry results. */
+  const createMemoryFromEntries = async (
+    group: FileMetadataResult[],
+  ) => {
+    const gpsGroup = group.filter(
+      (e) => e.metadata.lat !== undefined && e.metadata.lng !== undefined,
+    );
+    const groupDate =
+      group.map((e) => e.metadata.date).sort()[0] || today();
+    const groupTitle = group.length === 1
+      ? group[0].fileName.replace(/\.[^.]+$/, "")
+      : `${group[0].fileName.replace(/\.[^.]+$/, "")} + ${group.length - 1}`;
+    const groupCover = group[0].url;
+    const groupMedia = group.map((e) => e.url);
+
+    let lat = 0;
+    let lng = 0;
+    let city: string | null = null;
+    let country: string | null = null;
+
+    if (gpsGroup.length) {
+      // All grouped photos share the same GPS cluster, so average is fine
+      lat =
+        gpsGroup.reduce((s, e) => s + Number(e.metadata.lat), 0) / gpsGroup.length;
+      lng =
+        gpsGroup.reduce((s, e) => s + Number(e.metadata.lng), 0) / gpsGroup.length;
+      try {
+        const geo = await reverseGeocode(lat, lng, locale);
+        if (geo) { city = geo.city; country = geo.country; }
+      } catch { /* silent */ }
+    }
+
+    const res = await fetch("/api/memories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: groupTitle,
+        place: lat || lng ? `${lat.toFixed(4)}°, ${lng.toFixed(4)}°` : "",
+        date: groupDate,
+        lat,
+        lng,
+        color: getRandomMemoryColor(),
+        symbol: "pin",
+        kind: "memory",
+        image: groupCover,
+        media: groupMedia,
+        favorite: false,
+        city,
+        country,
+      }),
+    });
+    if (!res.ok) throw new Error("Create failed");
+    return (await res.json()) as Memory;
+  };
+
+  /** Merge all entries into a single memory. */
+  const finishImport = async (entries: FileMetadataResult[], photos: File[]) => {
+    const gps = entries.filter(
+      (e) => e.metadata.lat !== undefined && e.metadata.lng !== undefined,
+    );
+    const date = entries.map((e) => e.metadata.date).sort()[0] || today();
+    const title =
+      photos.length === 1
+        ? photos[0].name.replace(/\.[^.]+$/, "")
+        : `${photos[0].name.replace(/\.[^.]+$/, "")} + ${photos.length - 1} photos`;
+    const cover = entries[0].url;
+    const media = entries.map((e) => e.url);
+
+    if (!gps.length) {
+      setPendingImport({ cover, media, title, date });
       return;
     }
-    setImporting(true);
-    try {
-      // Upload all photos and read metadata in parallel
-      const entries = await Promise.all(
-        photos.map(async (file) => {
-          const { blob, name } = await prepareUpload(file);
-          const url = await uploadMedia(blob, name);
-          const metadata = await readPhotoMetadata(file);
-          return { url, metadata };
-        }),
-      );
-      const gps = entries.filter(
-        (entry) =>
-          entry.metadata.lat !== undefined && entry.metadata.lng !== undefined,
-      );
-      const date =
-        entries.map((entry) => entry.metadata.date).sort()[0] || today();
-      const title =
-        photos.length === 1
-          ? photos[0].name.replace(/\.[^.]+$/, "")
-          : `${photos[0].name.replace(/\.[^.]+$/, "")} + ${photos.length - 1} photos`;
-      const cover = entries[0].url;
-      const media = entries.map((entry) => entry.url);
-      if (!gps.length) {
-        setPendingImport({ cover, media, title, date });
-        return;
-      }
-      const lat = gps.reduce((sum, entry) => sum + Number(entry.metadata.lat), 0) /
-        gps.length;
-      const lng = gps.reduce((sum, entry) => sum + Number(entry.metadata.lng), 0) /
-        gps.length;
-      let city: string | null = null;
-      let country: string | null = null;
-      try { const geo = await reverseGeocode(lat, lng, locale); if (geo) { city = geo.city; country = geo.country; } } catch { /* silent */ }
 
-      // Create memory via API
-      const res = await fetch("/api/memories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title,
-          place: `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
-          date,
-          lat,
-          lng,
-          color: getRandomMemoryColor(),
-          symbol: "pin",
-          kind: "memory",
-          image: cover,
-          media,
-          favorite: false,
-          city,
-          country,
-        }),
-      });
-      if (res.ok) {
-        const created: Memory = await res.json();
-        setLocalMemories([...memories, created]);
-        setSelectedId(created.id);
-        setImportToast(
-          `${entries.length} ${entries.length === 1 ? t("map.photo.added") : t("map.photos.added")}`,
-        );
+    const lat =
+      gps.reduce((s, e) => s + Number(e.metadata.lat), 0) / gps.length;
+    const lng =
+      gps.reduce((s, e) => s + Number(e.metadata.lng), 0) / gps.length;
+    let city: string | null = null;
+    let country: string | null = null;
+    try {
+      const geo = await reverseGeocode(lat, lng, locale);
+      if (geo) { city = geo.city; country = geo.country; }
+    } catch { /* silent */ }
+
+    const res = await fetch("/api/memories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        place: `${lat.toFixed(4)}°, ${lng.toFixed(4)}°`,
+        date, lat, lng,
+        color: getRandomMemoryColor(), symbol: "pin", kind: "memory",
+        image: cover, media, favorite: false, city, country,
+      }),
+    });
+    if (!res.ok) throw new Error("Create failed");
+    const created: Memory = await res.json();
+    setLocalMemories([...memories, created]);
+    setSelectedId(created.id);
+    setImportToast(
+      `${entries.length} ${entries.length === 1 ? t("map.photo.added") : t("map.photos.added")}`,
+    );
+  };
+
+  const handleGpsMerge = async () => {
+    const conflict = gpsConflict;
+    if (!conflict) return;
+    setGpsConflict(null);
+    setImporting({ done: 0, total: conflict.entries.length, fileName: "" });
+    await finishImport(conflict.entries, conflict.photos);
+    setImporting(null);
+  };
+
+  const handleGpsSplit = async () => {
+    const conflict = gpsConflict;
+    if (!conflict) return;
+    setGpsConflict(null);
+
+    // Group entries by GPS cluster
+    const groupMap: Record<string, { entries: FileMetadataResult[] }> = {};
+    const noGps: FileMetadataResult[] = [];
+
+    for (const entry of conflict.entries) {
+      if (entry.metadata.lat !== undefined && entry.metadata.lng !== undefined) {
+        const key = coordGroupKey(entry.metadata.lat, entry.metadata.lng);
+        if (!groupMap[key]) groupMap[key] = { entries: [] };
+        groupMap[key].entries.push(entry);
       } else {
-        throw new Error("Create failed");
+        noGps.push(entry);
       }
+    }
+
+    const groups = Object.values(groupMap);
+    if (noGps.length) groups.push({ entries: noGps });
+
+    setImporting({ done: 0, total: groups.length, fileName: "" });
+    const created: Memory[] = [];
+
+    try {
+      for (let i = 0; i < groups.length; i++) {
+        const memory = await createMemoryFromEntries(groups[i].entries);
+        created.push(memory);
+        setImporting({ done: i + 1, total: groups.length, fileName: "" });
+      }
+      setLocalMemories([...memories, ...created]);
+      setImportToast(
+        `${created.length} ${created.length === 1 ? t("map.photo.added") : t("map.photos.added")}`,
+      );
     } catch {
       setImportToast(t("map.save.failed"));
     } finally {
-      setImporting(false);
+      setImporting(null);
+    }
+  };
+
+  /** Entry point for dragged / dropped files. */
+  const importPhotos = async (files: File[]) => {
+    const photos = files.filter(isPhotoFile);
+    if (!photos.length) {
+      setImportToast(t("map.import.hint"));
+      return;
+    }
+    setImporting({ done: 0, total: photos.length, fileName: "" });
+    try {
+      const entries = await processFileMetadata(photos, (done, total, fileName) => {
+        setImporting({ done, total, fileName });
+      });
+
+      const gps = entries.filter(
+        (e) => e.metadata.lat !== undefined && e.metadata.lng !== undefined,
+      );
+
+      // If there are multiple distinct GPS locations, prompt the user
+      if (gps.length > 1 && hasMixedGps(gps)) {
+        setGpsConflict({ entries, photos });
+        return;
+      }
+
+      await finishImport(entries, photos);
+    } catch {
+      setImportToast(t("map.save.failed"));
+    } finally {
+      setImporting(null);
     }
   };
   const handleDrop = (event: React.DragEvent) => {
@@ -860,7 +863,19 @@ export function Map() {
       {importing && (
         <div className="map-import-toast">
           <span className="import-spinner" />
-          {t("map.reading.metadata")}
+          <span className="import-progress-text">
+            {t("map.reading.metadata")}
+            <span className="import-progress-count">
+              {importing.done}/{importing.total}
+            </span>
+            <span className="import-progress-file">
+              {importing.fileName
+                ? importing.fileName.length > 40
+                  ? importing.fileName.slice(0, 37) + "…"
+                  : importing.fileName
+                : ""}
+            </span>
+          </span>
         </div>
       )}
       {importToast && !importing && (
@@ -911,6 +926,42 @@ export function Map() {
                 {t("map.delete.permanently")}
               </button>
             </div>
+          </div>
+        </div>,
+        portalContainer,
+      )}
+      {portalContainer && gpsConflict && createPortal(
+        <div
+          className="gps-conflict-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("map.gps.conflict.title")}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setGpsConflict(null);
+          }}
+        >
+          <div className="gps-conflict-card">
+            <div className="gps-conflict-icon">
+              <Layers3 size={20} />
+            </div>
+            <span className="eyebrow">{t("map.gps.conflict.title")}</span>
+            <h2>{t("map.gps.conflict.heading")}</h2>
+            <p>
+              {t("map.gps.conflict.desc", { count: gpsConflict.entries.length })}
+            </p>
+            <div className="gps-conflict-actions">
+              <button className="gps-conflict-merge" onClick={handleGpsMerge}>
+                <strong>{t("map.gps.conflict.merge")}</strong>
+                <small>{t("map.gps.conflict.merge.hint")}</small>
+              </button>
+              <button className="gps-conflict-split" onClick={handleGpsSplit}>
+                <strong>{t("map.gps.conflict.split")}</strong>
+                <small>{t("map.gps.conflict.split.hint")}</small>
+              </button>
+            </div>
+            <button className="gps-conflict-cancel" onClick={() => setGpsConflict(null)}>
+              {t("map.cancel")}
+            </button>
           </div>
         </div>,
         portalContainer,
