@@ -10,6 +10,7 @@ import { SettingsModal } from "@/shared/components/settings/SettingsModal";
 import { TagManager } from "@/shared/components/tags/TagManager";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 import { isMediaSrc } from "@/lib/media";
+import { IS_DEMO } from "@/shared/lib/demo";
 
 type HeaderMemory = {
   id: string;
@@ -232,16 +233,20 @@ export function Header() {
       </div>
 
       <div className="header-actions">
-        <button className="add-button" onClick={handleAdd}>
-          <Plus size={15} /> {t("add.memory")}
-        </button>
-        <button
-          className="icon-button"
-          aria-label="Tags"
-          onClick={() => setTagManagerOpen(true)}
-        >
-          <Hash size={16} />
-        </button>
+        {!IS_DEMO && (
+          <button className="add-button" onClick={handleAdd}>
+            <Plus size={15} /> {t("add.memory")}
+          </button>
+        )}
+        {!IS_DEMO && (
+          <button
+            className="icon-button"
+            aria-label="Tags"
+            onClick={() => setTagManagerOpen(true)}
+          >
+            <Hash size={16} />
+          </button>
+        )}
         <Link
           href="/achievements"
           className="icon-button"

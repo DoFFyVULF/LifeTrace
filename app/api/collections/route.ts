@@ -5,6 +5,10 @@ import { prisma } from "@/lib/prisma";
  * GET /api/collections
  */
 export async function GET() {
+  if (!prisma) {
+    return Response.json([]);
+  }
+
   const collections = await prisma.collection.findMany({
     orderBy: { createdAt: "desc" },
   });
@@ -13,9 +17,12 @@ export async function GET() {
 
 /**
  * POST /api/collections
- * Body: { name: string, memoryIds: string[] }
  */
 export async function POST(request: NextRequest) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const { name, memoryIds } = await request.json();
 

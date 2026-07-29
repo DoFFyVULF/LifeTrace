@@ -1,35 +1,46 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { deleteMediaFile } from "@/lib/storage";
+import { DEMO_MEMORIES } from "@/lib/demo-data";
 
 /**
  * GET /api/memories/:id
+ *
+ * In demo mode — returns from static data by index.
  */
 export async function GET(
   _request: NextRequest,
   ctx: RouteContext<"/api/memories/[id]">,
 ) {
   const { id } = await ctx.params;
-  const memory = await prisma.memory.findUnique({ where: { id } });
 
+  if (!prisma) {
+    const idx = parseInt(id.replace("seed-", ""), 10);
+    const memory = DEMO_MEMORIES[idx];
+    if (!memory) {
+      return Response.json({ error: "Memory not found" }, { status: 404 });
+    }
+    return Response.json({ id, ...memory });
+  }
+
+  const memory = await prisma.memory.findUnique({ where: { id } });
   if (!memory) {
     return Response.json({ error: "Memory not found" }, { status: 404 });
   }
-
   return Response.json(memory);
 }
 
 /**
  * PATCH /api/memories/:id
- *
- * Partial update. Fields not sent stay unchanged.
- * Body can include any Memory fields: title, place, date, lat, lng, color,
- * kind, image, media, favorite, description, note.
  */
 export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/memories/[id]">,
 ) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const { id } = await ctx.params;
     const body = await request.json();
@@ -39,12 +50,10 @@ export async function PATCH(
       return Response.json({ error: "Memory not found" }, { status: 404 });
     }
 
-    // If date changed, recalculate year
     if (body.date) {
       body.year = new Date(body.date).getFullYear().toString();
     }
 
-    // Build update payload — only include known fields
     const update: Record<string, unknown> = {};
     const allowedFields = [
       "title", "place", "date", "year", "lat", "lng",
@@ -71,14 +80,15 @@ export async function PATCH(
 
 /**
  * DELETE /api/memories/:id
- *
- * Deletes the memory and its associated media files from disk.
- * Also cleans up threads that referenced this memory.
  */
 export async function DELETE(
   _request: NextRequest,
   ctx: RouteContext<"/api/memories/[id]">,
 ) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const { id } = await ctx.params;
 
@@ -87,23 +97,16 @@ export async function DELETE(
       return Response.json({ error: "Memory not found" }, { status: 404 });
     }
 
-    // Delete media files from disk
     const allMedia = [
       ...(memory.image ? [memory.image] : []),
       ...(memory.media || []),
     ];
     for (const url of allMedia) {
-      try {
-        deleteMediaFile(url);
-      } catch {
-        // File may not exist — that's fine
-      }
+      try { deleteMediaFile(url); } catch { /* ok */ }
     }
 
-    // Delete the memory record
     await prisma.memory.delete({ where: { id } });
 
-    // Clean up threads that reference this id
     const threads = await prisma.memoryThread.findMany({
       where: { memoryIds: { has: id } },
     });

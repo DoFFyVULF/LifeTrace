@@ -3,6 +3,7 @@ import { isMediaSrc } from "@/lib/media";
 import { Compass, Heart, MapPinned, Star, Clock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
+import { IS_DEMO } from "@/shared/lib/demo";
 
 type ArchiveMemory = {
   id: string;
@@ -219,18 +220,20 @@ export function Sidebar() {
             {collection.name}
           </button>
         ))}
-        <button
-          className="new-collection-link"
-          onClick={() => setCollectionOpen(true)}
-        >
-          {t("sidebar.new.collection")}
-        </button>
+        {!IS_DEMO && (
+          <button
+            className="new-collection-link"
+            onClick={() => setCollectionOpen(true)}
+          >
+            {t("sidebar.new.collection")}
+          </button>
+        )}
         <span>
           <Star size={14} />
           {shown.length} {showFavoritesOnly ? t("sidebar.favorites.count") : t("sidebar.memories.count")}
         </span>
       </div>
-      {collectionOpen && (
+      {!IS_DEMO && collectionOpen && (
         <div className="collection-modal" role="dialog" aria-modal="true" aria-label={t("collection.create.modal")} onMouseDown={(event) => { if (event.target === event.currentTarget) setCollectionOpen(false); }}>
           <div className="collection-modal-card">
             <div className="collection-modal-head"><div><span className="panel-label">{t("collection.title")}</span><h3>{t("collection.heading")}</h3><p>{t("collection.desc")}</p></div><button className="collection-modal-close" onClick={() => setCollectionOpen(false)} aria-label={t("collection.close")}>×</button></div>

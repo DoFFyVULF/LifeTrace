@@ -5,9 +5,15 @@ import { saveUpload } from "@/lib/storage";
  * POST /api/upload
  *
  * Accepts one or more files via multipart/form-data.
- * Returns an array of served URLs like `/api/media/2026/07/<uuid>.<ext>`.
+ *
+ * In demo mode (no DATABASE_URL) uploads are disabled because
+ * the filesystem doesn't persist on Vercel serverless.
  */
 export async function POST(request: NextRequest) {
+  if (!process.env.DATABASE_URL) {
+    return Response.json({ error: "Uploads disabled in demo mode" }, { status: 403 });
+  }
+
   try {
     const formData = await request.formData();
     const entries = Array.from(formData.entries());

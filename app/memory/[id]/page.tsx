@@ -23,6 +23,7 @@ import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
 import { TagInput } from "@/shared/components/ui/TagInput";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
+import { IS_DEMO } from "@/shared/lib/demo";
 
 type EditableMemory = Memory & {
   description?: string;
@@ -83,6 +84,7 @@ export default function MemoryPage() {
       if (newCity === memory.city && newCountry === memory.country) return;
       const updated = { ...memory, city: newCity, country: newCountry };
       setMemory(updated);
+      if (IS_DEMO) return;
       fetch(`/api/memories/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -225,12 +227,14 @@ export default function MemoryPage() {
           <ArrowLeft size={16} /> {t("memory.back")}
         </Link>
         <span className="memory-header-mark">{t("memory.header.mark")}</span>
-        <div className="memory-header-actions">
-          <Switch
-            checked={editing}
-            onChange={(checked) => (checked ? setEditing(true) : save())}
-          />
-        </div>
+        {!IS_DEMO && (
+          <div className="memory-header-actions">
+            <Switch
+              checked={editing}
+              onChange={(checked) => (checked ? setEditing(true) : save())}
+            />
+          </div>
+        )}
       </header>
       <section className={`memory-hero ${editing ? "is-editing" : ""}`}>
         <div className="memory-hero-copy">
@@ -315,7 +319,7 @@ export default function MemoryPage() {
             </span>
           </div>
         </div>
-        {editing || !heroImage ? (
+        {(editing || !heroImage) && !IS_DEMO ? (
           <label
             className={`memory-hero-art memory-hero-drop ${editing ? "is-editing" : ""}`}
             onDragOver={(event) => event.preventDefault()}
@@ -363,23 +367,25 @@ export default function MemoryPage() {
               <span className="eyebrow">{t("memory.visual.journal")}</span>
               <h2>{t("memory.moments.from.here")}</h2>
             </div>
-            <div className="memory-edit-actions">
-              {editing && (
-                <button className="add-media add-media--save" onClick={save}>
-                  <Save size={14} /> {t("memory.save.changes")}
-                </button>
-              )}
-              <label className="add-media">
-                <Plus size={14} /> {t("memory.add.media")}
-                <input
-                  className="media-input"
-                  type="file"
-                  accept="image/*,video/*"
-                  multiple
-                  onChange={onChoose}
-                />
-              </label>
-            </div>
+            {!IS_DEMO && (
+              <div className="memory-edit-actions">
+                {editing && (
+                  <button className="add-media add-media--save" onClick={save}>
+                    <Save size={14} /> {t("memory.save.changes")}
+                  </button>
+                )}
+                <label className="add-media">
+                  <Plus size={14} /> {t("memory.add.media")}
+                  <input
+                    className="media-input"
+                    type="file"
+                    accept="image/*,video/*"
+                    multiple
+                    onChange={onChoose}
+                  />
+                </label>
+              </div>
+            )}
           </div>
           <div className={galleryClass}>
             {media.map((src, index) => (
@@ -408,7 +414,7 @@ export default function MemoryPage() {
                   )}{" "}
                   · {String(index + 1).padStart(2, "0")}
                 </span>
-                {editing && (
+                {editing && !IS_DEMO && (
                   <span
                     className="media-delete"
                     role="button"

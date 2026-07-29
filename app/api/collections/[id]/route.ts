@@ -8,6 +8,10 @@ export async function DELETE(
   _request: NextRequest,
   ctx: RouteContext<"/api/collections/[id]">,
 ) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const { id } = await ctx.params;
     const existing = await prisma.collection.findUnique({ where: { id } });

@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 import { isMediaSrc } from "@/lib/media";
+import { IS_DEMO } from "@/shared/lib/demo";
 
 type DetailMemory = {
   id: string;
@@ -252,35 +253,41 @@ export function DetailsPanel() {
 
       {/* Actions */}
       <div className="detail-actions">
-        <button
-          className={`detail-action ${memory.favorite ? "is-favorite" : ""}`}
-          onClick={toggleFavorite}
-          aria-label={memory.favorite ? "Remove from favorites" : "Add to favorites"}
-        >
-          <Heart
-            size={14}
-            fill={memory.favorite ? "currentColor" : "none"}
-          />
-          {memory.favorite
-            ? t("map.remove.favorite") || "Unfavorite"
-            : t("map.add.to.favorites") || "Favorite"}
-        </button>
+        {!IS_DEMO && (
+          <button
+            className={`detail-action ${memory.favorite ? "is-favorite" : ""}`}
+            onClick={toggleFavorite}
+            aria-label={memory.favorite ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Heart
+              size={14}
+              fill={memory.favorite ? "currentColor" : "none"}
+            />
+            {memory.favorite
+              ? t("map.remove.favorite") || "Unfavorite"
+              : t("map.add.to.favorites") || "Favorite"}
+          </button>
+        )}
 
-        <button
-          className="detail-action"
-          onClick={() => dispatchAction("life-trace-edit-memory")}
-        >
-          <Pencil size={14} />
-          {t("map.edit") || "Edit"}
-        </button>
+        {!IS_DEMO && (
+          <button
+            className="detail-action"
+            onClick={() => dispatchAction("life-trace-edit-memory")}
+          >
+            <Pencil size={14} />
+            {t("map.edit") || "Edit"}
+          </button>
+        )}
 
-        <button
-          className="detail-action"
-          onClick={() => dispatchAction("life-trace-link-memory")}
-        >
-          <Link2 size={14} />
-          {t("map.link.this") || "Link"}
-        </button>
+        {!IS_DEMO && (
+          <button
+            className="detail-action"
+            onClick={() => dispatchAction("life-trace-link-memory")}
+          >
+            <Link2 size={14} />
+            {t("map.link.this") || "Link"}
+          </button>
+        )}
 
         <Link
           href={`/memory/${memory.id}`}
@@ -290,13 +297,15 @@ export function DetailsPanel() {
           {t("map.open.memory") || "Open"}
         </Link>
 
-        <button
-          className="detail-action detail-action--delete"
-          onClick={() => dispatchAction("life-trace-delete-memory")}
-        >
-          <Trash2 size={14} />
-          {t("map.delete.memory") || "Delete"}
-        </button>
+        {!IS_DEMO && (
+          <button
+            className="detail-action detail-action--delete"
+            onClick={() => dispatchAction("life-trace-delete-memory")}
+          >
+            <Trash2 size={14} />
+            {t("map.delete.memory") || "Delete"}
+          </button>
+        )}
       </div>
     </aside>
   );

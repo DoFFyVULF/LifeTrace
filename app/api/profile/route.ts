@@ -1,12 +1,19 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { DEMO_PROFILE } from "@/lib/demo-data";
 
 const SINGLETON_ID = "singleton";
 
 /**
  * GET /api/profile
+ *
+ * In demo mode — returns static profile data.
  */
 export async function GET() {
+  if (!prisma) {
+    return Response.json({ ...DEMO_PROFILE });
+  }
+
   let profile = await prisma.profile.findUnique({
     where: { id: SINGLETON_ID },
   });
@@ -20,9 +27,12 @@ export async function GET() {
 
 /**
  * PATCH /api/profile
- * Body: { name?: string, avatarPath?: string, locale?: string }
  */
 export async function PATCH(request: NextRequest) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const update: Record<string, unknown> = {};

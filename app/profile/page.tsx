@@ -16,6 +16,7 @@ import { prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
 import { ConstellationTimeline } from "@/features/profile/components/ConstellationTimeline";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
+import { IS_DEMO } from "@/shared/lib/demo";
 import {
   TITLES,
   TITLE_MAP,
@@ -137,6 +138,7 @@ export default function ProfilePage() {
           const newCity = geo.city || m.city;
           const newCountry = geo.country || m.country;
           if (newCity === m.city && newCountry === m.country) return null;
+          if (IS_DEMO) return { ...m, city: newCity, country: newCountry };
           fetch(`/api/memories/${m.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -261,21 +263,36 @@ export default function ProfilePage() {
     <div className="profile-page">
       {/* Avatar */}
       <div className="profile-hero">
-        <button
-          className="profile-avatar profile-avatar--large"
-          onClick={handleAvatarUpload}
-          style={avatarStyle}
-          aria-label={t("profile.upload.avatar")}
-        >
-          {!profile.avatarPath && (
-            <span className="profile-initials">{initials}</span>
-          )}
-          <span className="profile-avatar-overlay">
-            <Camera size={24} />
-          </span>
-        </button>
+        {IS_DEMO ? (
+          <div
+            className="profile-avatar profile-avatar--large"
+            style={avatarStyle}
+          >
+            {!profile.avatarPath && (
+              <span className="profile-initials">{initials}</span>
+            )}
+          </div>
+        ) : (
+          <button
+            className="profile-avatar profile-avatar--large"
+            onClick={handleAvatarUpload}
+            style={avatarStyle}
+            aria-label={t("profile.upload.avatar")}
+          >
+            {!profile.avatarPath && (
+              <span className="profile-initials">{initials}</span>
+            )}
+            <span className="profile-avatar-overlay">
+              <Camera size={24} />
+            </span>
+          </button>
+        )}
         <div className="profile-name-section">
-          {editingName ? (
+          {IS_DEMO ? (
+            <h1 className="profile-name profile-name--centered">
+              {profile.name || t("profile.default.name")}
+            </h1>
+          ) : editingName ? (
             <input
               autoFocus
               className="profile-name-input profile-name-input--centered"
@@ -294,26 +311,33 @@ export default function ProfilePage() {
             </h1>
           )}
 
-          {/* Achievement title picker */}
+          {/* Achievement title picker — show selected in demo, hide picker */}
           <div className="profile-title-wrap" ref={titlePickerRef}>
-            <button
-              className={`profile-title-btn ${selectedTitleDef ? "profile-title-btn--has" : ""}`}
-              onClick={() => {
-                if (availableTitles.length > 0) setTitleOpen((p) => !p);
-              }}
-              disabled={availableTitles.length === 0}
-            >
-              <Trophy size={13} />
-              {selectedTitleDef ? (
-                <span>
-                  {selectedTitleDef.icon} {t(selectedTitleDef.nameKey)}
-                </span>
-              ) : level > 0 ? (
-                <span>{t("profile.choose.title")}</span>
-              ) : (
-                <span>{t("profile.no.title")}</span>
-              )}
-            </button>
+            {IS_DEMO && selectedTitleDef ? (
+              <span className="profile-title-btn profile-title-btn--has">
+                <Trophy size={13} />
+                <span>{selectedTitleDef.icon} {t(selectedTitleDef.nameKey)}</span>
+              </span>
+            ) : (
+              <button
+                className={`profile-title-btn ${selectedTitleDef ? "profile-title-btn--has" : ""}`}
+                onClick={() => {
+                  if (!IS_DEMO && availableTitles.length > 0) setTitleOpen((p) => !p);
+                }}
+                disabled={IS_DEMO || availableTitles.length === 0}
+              >
+                <Trophy size={13} />
+                {selectedTitleDef ? (
+                  <span>
+                    {selectedTitleDef.icon} {t(selectedTitleDef.nameKey)}
+                  </span>
+                ) : level > 0 ? (
+                  <span>{t("profile.choose.title")}</span>
+                ) : (
+                  <span>{t("profile.no.title")}</span>
+                )}
+              </button>
+            )}
 
             {/* Animated dropdown */}
             {titleOpen && (

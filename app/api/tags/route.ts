@@ -1,24 +1,25 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { DEMO_MEMORIES, DEMO_PROFILE } from "@/lib/demo-data";
 
 export type TagEntry = { name: string; count: number };
 
 /**
  * GET /api/tags
  *
- * Returns all unique tags across all memories (with usage count)
- * plus any known tags from the profile that have 0 memories.
- *
- * Response: { tags: { name: string; count: number }[] }
+ * In demo mode — computes from DEMO_MEMORIES.
  */
 export async function GET() {
+  if (!prisma) {
+    return Response.json({ tags: computeDemoTags() });
+  }
+
   try {
     const [memories, profile] = await Promise.all([
       prisma.memory.findMany({ select: { tags: true } }),
       prisma.profile.findUnique({ where: { id: "singleton" } }),
     ]);
 
-    // Aggregate tag frequencies from memories
     const frequency = new Map<string, number>();
     for (const memory of memories) {
       for (const tag of memory.tags) {
@@ -26,7 +27,6 @@ export async function GET() {
       }
     }
 
-    // Include known tags that aren't on any memory yet
     for (const tag of profile?.knownTags ?? []) {
       if (!frequency.has(tag)) {
         frequency.set(tag, 0);
@@ -46,11 +46,12 @@ export async function GET() {
 
 /**
  * POST /api/tags
- *
- * Add a tag to the profile's known-tags list.
- * Body: { name: string }
  */
 export async function POST(request: NextRequest) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const { name } = await request.json();
     if (!name || typeof name !== "string") {
@@ -65,15 +66,9 @@ export async function POST(request: NextRequest) {
     const profile = await prisma.profile.upsert({
       where: { id: "singleton" },
       create: { id: "singleton", knownTags: [tag] },
-      update: {
-        knownTags: {
-          // Add tag only if not already present (PostgreSQL array append)
-          push: tag,
-        },
-      },
+      update: { knownTags: { push: tag } },
     });
 
-    // Deduplicate — PostgreSQL array push doesn't dedupe
     const deduped = [...new Set(profile.knownTags)];
     if (deduped.length !== profile.knownTags.length) {
       await prisma.profile.update({
@@ -91,10 +86,12 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE /api/tags?name=xxx
- *
- * Removes a tag from all memories and from the profile's known-tags list.
  */
 export async function DELETE(request: NextRequest) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const name = request.nextUrl.searchParams.get("name");
     if (!name) {
@@ -103,8 +100,6 @@ export async function DELETE(request: NextRequest) {
 
     const tag = name.trim().toLowerCase();
 
-    // Remove from all memories — use raw SQL for array element removal
-    // (Prisma doesn't have a native "remove from string array" yet)
     const memories = await prisma.memory.findMany({
       where: { tags: { has: tag } },
       select: { id: true, tags: true },
@@ -112,14 +107,13 @@ export async function DELETE(request: NextRequest) {
 
     await Promise.all(
       memories.map((m) =>
-        prisma.memory.update({
+        prisma!.memory.update({
           where: { id: m.id },
           data: { tags: m.tags.filter((t) => t !== tag) },
         }),
       ),
     );
 
-    // Remove from known tags
     const profile = await prisma.profile.findUnique({
       where: { id: "singleton" },
       select: { knownTags: true },
@@ -137,4 +131,21 @@ export async function DELETE(request: NextRequest) {
     console.error("Tag delete error:", error);
     return Response.json({ error: "Failed to delete tag" }, { status: 500 });
   }
+}
+
+// ─── Demo helpers ─────────────────────────────────────────────────
+
+function computeDemoTags(): TagEntry[] {
+  const frequency = new Map<string, number>();
+  for (const memory of DEMO_MEMORIES) {
+    for (const tag of memory.tags) {
+      frequency.set(tag, (frequency.get(tag) ?? 0) + 1);
+    }
+  }
+  for (const tag of DEMO_PROFILE.knownTags ?? []) {
+    if (!frequency.has(tag)) frequency.set(tag, 0);
+  }
+  return Array.from(frequency.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }

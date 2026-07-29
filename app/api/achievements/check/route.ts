@@ -2,26 +2,29 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import {
   ACHIEVEMENTS,
-  ACHIEVEMENT_MAP,
   buildCheckerData,
   isAchievementUnlocked,
 } from "@/lib/achievements";
 import type { AchievementWithStatus } from "@/lib/achievements/types";
+import {
+  DEMO_MEMORIES,
+  DEMO_THREADS,
+  DEMO_PROFILE,
+  DEMO_UNLOCKED_MAP,
+} from "@/lib/demo-data";
 
 /**
  * POST /api/achievements/check
  *
- * Check all achievements against current DB data.
- * Any newly unlocked achievements get stored so we can
- * record the unlockedAt timestamp.
- *
- * Body (optional): { forceIds?: number[] }
- * forceIds lets the client request a re-check for specific
- * achievements (e.g. #25 after an EXIF GPS import).
- *
- * Returns: { newlyUnlocked: AchievementWithStatus[], all: AchievementWithStatus[] }
+ * Check all achievements against current data.
+ * In demo mode — returns computed status without storing anything.
  */
 export async function POST(request: NextRequest) {
+  if (!prisma) {
+    const status = demoAchievementStatus();
+    return Response.json({ newlyUnlocked: [], all: status });
+  }
+
   const body = await request.json().catch(() => ({}));
   const forceIds: number[] = body?.forceIds ?? [];
 
@@ -40,13 +43,12 @@ export async function POST(request: NextRequest) {
   );
 
   const checkerData = buildCheckerData(memories, threads, profile);
+
   const newlyUnlocked: AchievementWithStatus[] = [];
 
-  // For each achievement, check if it should be unlocked
   for (const a of ACHIEVEMENTS) {
     const alreadyStored = storedIds.has(a.id);
 
-    // For #25, only unlock when explicitly forced
     if (a.id === 25) {
       if (forceIds.includes(25) && !alreadyStored) {
         await prisma.unlockedAchievement.create({
@@ -61,10 +63,8 @@ export async function POST(request: NextRequest) {
       continue;
     }
 
-    // Skip if already stored
     if (alreadyStored) continue;
 
-    // Check if unlocked by criteria
     const unlocked = isAchievementUnlocked(a.id, checkerData);
     if (unlocked) {
       await prisma.unlockedAchievement.create({
@@ -75,7 +75,6 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Build full list with current status
   const allStored = await prisma.unlockedAchievement.findMany();
   const allStoredMap = new Map(
     allStored.map((u) => [u.achievementId, u.unlockedAt.toISOString()]),
@@ -93,4 +92,41 @@ export async function POST(request: NextRequest) {
   });
 
   return Response.json({ newlyUnlocked, all });
+}
+
+// ─── Demo helper ────────────────────────────────────────────────────
+
+function demoAchievementStatus(): AchievementWithStatus[] {
+  const memories = DEMO_MEMORIES.map((m, i) => ({
+    id: `seed-${i}`,
+    ...m,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }));
+
+  const threads = DEMO_THREADS.map((t, i) => ({
+    id: `seed-thread-${i}`,
+    memoryIds: t.memoryIds.map((idx) => `seed-${idx}`),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }));
+
+  const profile = {
+    name: DEMO_PROFILE.name,
+    avatarPath: DEMO_PROFILE.avatarPath,
+    locale: DEMO_PROFILE.locale,
+  };
+
+  const checkerData = buildCheckerData(memories as any, threads as any, profile);
+
+  return ACHIEVEMENTS.map((a) => {
+    const computed = isAchievementUnlocked(a.id, checkerData);
+    const stored = DEMO_UNLOCKED_MAP.has(a.id);
+    const unlocked = a.id === 25 ? stored : computed || stored;
+    return {
+      ...a,
+      unlocked,
+      unlockedAt: stored ? "2026-01-01T00:00:00.000Z" : null,
+    };
+  });
 }

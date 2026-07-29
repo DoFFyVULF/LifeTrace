@@ -1,18 +1,19 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { deleteMediaFile } from "@/lib/storage";
+import { DEMO_MEMORIES } from "@/lib/demo-data";
 
 /**
  * GET /api/memories
  *
  * Returns all memories, ordered by date descending.
- * Supports ?filter=favorites and ?search=<query> (case-insensitive, JS-side).
- *
- * NOTE: Search is filtered in JS because the PostgreSQL database uses C locale
- * which does not handle Cyrillic/Multi-byte case folding (ILIKE / LOWER both
- * only fold ASCII under C locale).
+ * Supports ?filter=favorites and ?search=<query>.
  */
 export async function GET(request: NextRequest) {
+  if (!prisma) {
+    return Response.json(DEMO_MEMORIES);
+  }
+
   const { searchParams } = request.nextUrl;
   const filter = searchParams.get("filter");
   const search = searchParams.get("search");
@@ -47,9 +48,13 @@ export async function GET(request: NextRequest) {
  * POST /api/memories
  *
  * Create a new memory.
- * Body: { title, place, date, lat, lng, color, kind, image, media, favorite }
+ * In demo mode (no DB) — return 403.
  */
 export async function POST(request: NextRequest) {
+  if (!prisma) {
+    return Response.json({ error: "Demo mode — read only" }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
 

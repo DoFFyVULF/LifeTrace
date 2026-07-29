@@ -13,6 +13,7 @@ import {
 import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
 import { processFileMetadata, type FileMetadataResult } from "@/lib/photo-metadata.client";
+import { IS_DEMO } from "@/shared/lib/demo";
 import { isPhotoFile } from "@/lib/photo-metadata";
 import type { Memory, MemoryThread, MapStyle } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
@@ -180,7 +181,7 @@ export function Map() {
     };
     window.addEventListener("life-trace-year", onYear);
     window.addEventListener("life-trace-search", onSearch);
-    window.addEventListener("life-trace-add", onAdd);
+    if (!IS_DEMO) window.addEventListener("life-trace-add", onAdd);
     window.addEventListener("life-trace-filter", onFilter);
     window.addEventListener("life-trace-select", onSelectMemory);
     window.addEventListener("life-trace-collection", onCollection);
@@ -201,9 +202,9 @@ export function Map() {
       setShowThreads(false);
       setLinkingIds([id]);
     };
-    window.addEventListener("life-trace-edit-memory", onEditMemory);
-    window.addEventListener("life-trace-delete-memory", onDeleteMemory);
-    window.addEventListener("life-trace-link-memory", onLinkMemory);
+    if (!IS_DEMO) window.addEventListener("life-trace-edit-memory", onEditMemory);
+    if (!IS_DEMO) window.addEventListener("life-trace-delete-memory", onDeleteMemory);
+    if (!IS_DEMO) window.addEventListener("life-trace-link-memory", onLinkMemory);
 
     return () => {
       window.removeEventListener("life-trace-year", onYear);
@@ -413,6 +414,9 @@ export function Map() {
   );
   // selected is now handled by DetailsPanel
   const handleMapClick = useCallback(async (lng: number, lat: number) => {
+    // In demo mode, map clicks only select memories, never create new ones
+    if (IS_DEMO) return;
+
     let city = "";
     let country = "";
     try {
@@ -953,25 +957,27 @@ export function Map() {
         >
           <Layers3 size={17} />
         </button>
-        <button title={t("map.add.memory.title")} onClick={() => openCreate()}>
-          <Upload size={16} />
-        </button>
+        {!IS_DEMO && (
+          <button title={t("map.add.memory.title")} onClick={() => openCreate()}>
+            <Upload size={16} />
+          </button>
+        )}
       </div>
-      {addMode && (
+      {!IS_DEMO && addMode && (
         <div className="add-mode-hint">
           <span className="add-mode-pulse" />
           {t("map.click.to.place")}{" "}
           <button onClick={() => setAddMode(false)}>{t("map.cancel")}</button>
         </div>
       )}
-      {pendingImport && (
+      {!IS_DEMO && pendingImport && (
         <div className="add-mode-hint">
           <span className="add-mode-pulse" />
           {t("map.click.to.place.photos")}{" "}
           <button onClick={() => setPendingImport(null)}>{t("map.cancel")}</button>
         </div>
       )}
-      {dragActive && (
+      {!IS_DEMO && dragActive && (
         <div className="map-drop-overlay">
           <div className="map-drop-card">
             <Upload size={27} />
@@ -980,7 +986,7 @@ export function Map() {
           </div>
         </div>
       )}
-      {importing && (
+      {!IS_DEMO && importing && (
         <div className="map-import-toast">
           <span className="import-spinner" />
           <span className="import-progress-text">
@@ -998,12 +1004,12 @@ export function Map() {
           </span>
         </div>
       )}
-      {importToast && !importing && (
+      {!IS_DEMO && importToast && !importing && (
         <div className="map-import-toast map-import-toast--success">
           {importToast}
         </div>
       )}
-      {linkingIds && (
+      {!IS_DEMO && linkingIds && (
         <div className="link-mode-hint">
           <Link2 size={15} />
           <span>{t("map.link.hint")}</span>
@@ -1021,7 +1027,7 @@ export function Map() {
           </small>
         )}
       </div>
-      {portalContainer && deleteTarget && createPortal(
+      {!IS_DEMO && portalContainer && deleteTarget && createPortal(
         <div
           className="delete-modal"
           role="dialog"
@@ -1050,7 +1056,7 @@ export function Map() {
         </div>,
         portalContainer,
       )}
-      {portalContainer && gpsConflict && createPortal(
+      {!IS_DEMO && portalContainer && gpsConflict && createPortal(
         <div
           className="gps-conflict-modal"
           role="dialog"
@@ -1086,7 +1092,7 @@ export function Map() {
         </div>,
         portalContainer,
       )}
-      {portalContainer && form && createPortal(
+      {!IS_DEMO && portalContainer && form && createPortal(
         <div className="memory-modal">
           <div className="memory-modal-card">
             <div className="modal-head">
