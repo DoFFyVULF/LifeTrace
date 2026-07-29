@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Camera,
@@ -16,10 +16,18 @@ import { prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
 import { ConstellationTimeline } from "@/features/profile/components/ConstellationTimeline";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
+import {
+  TITLES,
+  TITLE_MAP,
+  getAchievementLevel,
+  getTitlesForLevel,
+} from "@/lib/achievements/titles";
+import type { AchievementWithStatus } from "@/lib/achievements/types";
 
 type ProfileData = {
   name: string;
   avatarPath: string | null;
+  selectedTitle?: string | null;
 };
 
 const formatDate = (dateStr: string, locale: string = "en-GB") => {
@@ -34,22 +42,6 @@ const formatDate = (dateStr: string, locale: string = "en-GB") => {
   }
 };
 
-const RANK_KEY = [
-  { min: 0, key: "profile.rank.beginner", icon: "🌱" },
-  { min: 1, key: "profile.rank.storyteller", icon: "📖" },
-  { min: 5, key: "profile.rank.keeper", icon: "🗂️" },
-  { min: 20, key: "profile.rank.master", icon: "🏛️" },
-  { min: 50, key: "profile.rank.chronicler", icon: "📜" },
-] as const;
-
-function getRankT(count: number) {
-  let rank: (typeof RANK_KEY)[number] = RANK_KEY[0];
-  for (const r of RANK_KEY) {
-    if (count >= r.min) rank = r;
-  }
-  return rank;
-}
-
 export default function ProfilePage() {
   const { t, locale } = useLocale();
   const [profile, setProfile] = useState<ProfileData>({ name: "", avatarPath: null });
@@ -59,13 +51,16 @@ export default function ProfilePage() {
   const [nameDraft, setNameDraft] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [unlockedCount, setUnlockedCount] = useState(0);
+  const [titleOpen, setTitleOpen] = useState(false);
+  const titlePickerRef = useRef<HTMLDivElement>(null);
 
   const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch("/api/profile");
       if (res.ok) {
         const data = await res.json();
-        setProfile({ name: data.name || "", avatarPath: data.avatarPath || null });
+        setProfile({ name: data.name || "", avatarPath: data.avatarPath || null, selectedTitle: data.selectedTitle || null });
       }
     } catch {
       // silent
@@ -90,19 +85,46 @@ export default function ProfilePage() {
     }
   }, []);
 
+  const fetchAchievements = useCallback(async () => {
+    try {
+      const res = await fetch("/api/achievements");
+      if (res.ok) {
+        const data: AchievementWithStatus[] = await res.json();
+        setUnlockedCount(data.filter((a) => a.unlocked).length);
+      }
+    } catch {
+      // silent
+    }
+  }, []);
+
   useEffect(() => {
     void fetchProfile();
     void fetchMemories();
     void fetchThreads();
+    void fetchAchievements();
     const onState = () => {
       void fetchMemories();
       void fetchThreads();
+      void fetchAchievements();
+      void fetchProfile();
     };
     window.addEventListener("life-trace-memory-state", onState);
     return () => window.removeEventListener("life-trace-memory-state", onState);
-  }, [fetchProfile, fetchMemories, fetchThreads]);
+  }, [fetchProfile, fetchMemories, fetchThreads, fetchAchievements]);
 
-  // Re‑geocode all memories when locale changes so city/country reflect the current language
+  // Close picker on outside click
+  useEffect(() => {
+    if (!titleOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (titlePickerRef.current && !titlePickerRef.current.contains(e.target as Node)) {
+        setTitleOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [titleOpen]);
+
+  // Re‑geocode all memories when locale changes
   useEffect(() => {
     if (!memories.length) return;
     let cancelled = false;
@@ -115,7 +137,6 @@ export default function ProfilePage() {
           const newCity = geo.city || m.city;
           const newCountry = geo.country || m.country;
           if (newCity === m.city && newCountry === m.country) return null;
-          // Persist to API
           fetch(`/api/memories/${m.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -140,8 +161,7 @@ export default function ProfilePage() {
       0,
     );
     const favorites = memories.filter((m) => m.favorite).length;
-    const activeYears = new Set(memories.map((m) => m.year).filter(Boolean))
-      .size;
+    const activeYears = new Set(memories.map((m) => m.year).filter(Boolean)).size;
     const totalThreads = threads.length;
 
     const sorted = [...memories].sort((a, b) => a.date.localeCompare(b.date));
@@ -149,24 +169,10 @@ export default function ProfilePage() {
     const lastDate = sorted[sorted.length - 1]?.date;
     const spanYears =
       firstDate && lastDate
-        ? Math.max(
-            1,
-            new Date(lastDate).getFullYear() -
-              new Date(firstDate).getFullYear() +
-              1,
-          )
+        ? Math.max(1, new Date(lastDate).getFullYear() - new Date(firstDate).getFullYear() + 1)
         : 0;
 
-    return {
-      totalMemories,
-      totalPhotos,
-      favorites,
-      activeYears,
-      totalThreads,
-      firstDate,
-      lastDate,
-      spanYears,
-    };
+    return { totalMemories, totalPhotos, favorites, activeYears, totalThreads, firstDate, lastDate, spanYears };
   }, [memories, threads]);
 
   const years = useMemo(() => {
@@ -181,26 +187,34 @@ export default function ProfilePage() {
     if (!years.includes(selectedYear)) setSelectedYear(years[0] ?? new Date().getFullYear());
   }, [selectedYear, years]);
 
-  const rank = useMemo(() => getRankT(stats.totalMemories), [stats.totalMemories]);
-
   const initials = useMemo(() => {
     const name = profile.name?.trim();
     if (!name) return "LT";
-    return name
-      .split(/\s+/)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
+    return name.split(/\s+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
   }, [profile.name]);
 
   const avatarStyle = profile.avatarPath
-    ? {
-        backgroundImage: `url(${profile.avatarPath})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }
+    ? { backgroundImage: `url(${profile.avatarPath})`, backgroundSize: "cover", backgroundPosition: "center" }
     : undefined;
+
+  // ─── Achievement level & title logic ─────────────────────────
+  const level = useMemo(() => getAchievementLevel(unlockedCount), [unlockedCount]);
+  const availableTitles = useMemo(() => getTitlesForLevel(level), [level]);
+  const maxLevel = 3;
+  const selectedTitleDef = useMemo(
+    () => (profile.selectedTitle ? TITLE_MAP.get(profile.selectedTitle) ?? null : null),
+    [profile.selectedTitle],
+  );
+
+  const handleSelectTitle = useCallback(async (slug: string | null) => {
+    setTitleOpen(false);
+    setProfile((prev) => ({ ...prev, selectedTitle: slug }));
+    await fetch("/api/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ selectedTitle: slug }),
+    }).catch(() => {});
+  }, []);
 
   const handleAvatarUpload = useCallback(async () => {
     const input = document.createElement("input");
@@ -219,6 +233,7 @@ export default function ProfilePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ avatarPath: url }),
         });
+        window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
       } catch {
         // silent
       }
@@ -235,6 +250,7 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: nameDraft }),
       });
+      window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
     } catch {
       // silent
     }
@@ -243,7 +259,7 @@ export default function ProfilePage() {
   return (
     <ProfileLayout>
     <div className="profile-page">
-      {/* Avatar - big and centered */}
+      {/* Avatar */}
       <div className="profile-hero">
         <button
           className="profile-avatar profile-avatar--large"
@@ -277,10 +293,68 @@ export default function ProfilePage() {
               {profile.name || t("profile.default.name")}
             </h1>
           )}
-          <span className="profile-rank">
-            <Trophy size={14} />
-            {t(rank.key)}
-          </span>
+
+          {/* Achievement title picker */}
+          <div className="profile-title-wrap" ref={titlePickerRef}>
+            <button
+              className={`profile-title-btn ${selectedTitleDef ? "profile-title-btn--has" : ""}`}
+              onClick={() => {
+                if (availableTitles.length > 0) setTitleOpen((p) => !p);
+              }}
+              disabled={availableTitles.length === 0}
+            >
+              <Trophy size={13} />
+              {selectedTitleDef ? (
+                <span>
+                  {selectedTitleDef.icon} {t(selectedTitleDef.nameKey)}
+                </span>
+              ) : level > 0 ? (
+                <span>{t("profile.choose.title")}</span>
+              ) : (
+                <span>{t("profile.no.title")}</span>
+              )}
+            </button>
+
+            {/* Animated dropdown */}
+            {titleOpen && (
+              <div className="profile-title-dropdown">
+                {availableTitles.map((titleDef, i) => (
+                  <button
+                    key={titleDef.slug}
+                    className={`profile-title-option ${profile.selectedTitle === titleDef.slug ? "is-active" : ""}`}
+                    style={{ animationDelay: `${i * 40}ms` }}
+                    onClick={() => handleSelectTitle(
+                      profile.selectedTitle === titleDef.slug ? null : titleDef.slug,
+                    )}
+                  >
+                    <span className="profile-title-option-icon">{titleDef.icon}</span>
+                    <span className="profile-title-option-name">
+                      {t(titleDef.nameKey)}
+                    </span>
+                    {profile.selectedTitle === titleDef.slug && (
+                      <span className="profile-title-option-check">✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Level progress indicator */}
+            {level > 0 && (
+              <div className="profile-level-bar">
+                {[1, 2, 3].map((l) => (
+                  <span
+                    key={l}
+                    className={`profile-level-dot ${l <= level ? "profile-level-dot--active" : ""}`}
+                    title={`${t("profile.achievement.level")} ${l}`}
+                  />
+                ))}
+                <span className="profile-level-label">
+                  {t("profile.achievement.level")} {level}/{maxLevel}
+                </span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -289,10 +363,7 @@ export default function ProfilePage() {
         <span className="eyebrow">{t("profile.statistics")}</span>
         <div className="profile-stats">
           <div className="profile-stat">
-            <div
-              className="profile-stat-icon"
-              style={{ background: "#f6d9d5", color: "#b33e48" }}
-            >
+            <div className="profile-stat-icon" style={{ background: "#f6d9d5", color: "#b33e48" }}>
               <ImageIcon size={16} />
             </div>
             <div className="profile-stat-body">
@@ -301,10 +372,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="profile-stat">
-            <div
-              className="profile-stat-icon"
-              style={{ background: "#d5e3dd", color: "#3f7a5f" }}
-            >
+            <div className="profile-stat-icon" style={{ background: "#d5e3dd", color: "#3f7a5f" }}>
               <Camera size={16} />
             </div>
             <div className="profile-stat-body">
@@ -313,10 +381,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="profile-stat">
-            <div
-              className="profile-stat-icon"
-              style={{ background: "#f0dbd0", color: "#b3714a" }}
-            >
+            <div className="profile-stat-icon" style={{ background: "#f0dbd0", color: "#b3714a" }}>
               <Heart size={16} />
             </div>
             <div className="profile-stat-body">
@@ -325,10 +390,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="profile-stat">
-            <div
-              className="profile-stat-icon"
-              style={{ background: "#d5d5e3", color: "#5b5b8a" }}
-            >
+            <div className="profile-stat-icon" style={{ background: "#d5d5e3", color: "#5b5b8a" }}>
               <Layers size={16} />
             </div>
             <div className="profile-stat-body">
@@ -337,10 +399,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="profile-stat">
-            <div
-              className="profile-stat-icon"
-              style={{ background: "#d9e0c5", color: "#6f7d3a" }}
-            >
+            <div className="profile-stat-icon" style={{ background: "#d9e0c5", color: "#6f7d3a" }}>
               <CalendarDays size={16} />
             </div>
             <div className="profile-stat-body">
@@ -349,10 +408,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div className="profile-stat">
-            <div
-              className="profile-stat-icon"
-              style={{ background: "#e0d4c5", color: "#8a6e4a" }}
-            >
+            <div className="profile-stat-icon" style={{ background: "#e0d4c5", color: "#8a6e4a" }}>
               <MapPin size={16} />
             </div>
             <div className="profile-stat-body">
@@ -397,9 +453,7 @@ export default function ProfilePage() {
         <div className="profile-empty">
           <MapPin size={24} />
           <p>{t("profile.no.memories")}</p>
-          <small>
-            {t("profile.no.memories.hint")}
-          </small>
+          <small>{t("profile.no.memories.hint")}</small>
         </div>
       )}
     </div>

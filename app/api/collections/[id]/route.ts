@@ -18,6 +18,9 @@ export async function DELETE(
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error("Delete collection error:", error);
-    return Response.json({ error: "Failed to delete collection" }, { status: 500 });
+    return Response.json(
+      { error: "Failed to delete collection" },
+      { status: 500 },
+    );
   }
 }

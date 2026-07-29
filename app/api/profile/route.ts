@@ -20,7 +20,7 @@ export async function GET() {
 
 /**
  * PATCH /api/profile
- * Body: { name?: string, avatarPath?: string }
+ * Body: { name?: string, avatarPath?: string, locale?: string }
  */
 export async function PATCH(request: NextRequest) {
   try {
@@ -29,6 +29,8 @@ export async function PATCH(request: NextRequest) {
 
     if ("name" in body) update.name = body.name;
     if ("avatarPath" in body) update.avatarPath = body.avatarPath;
+    if ("locale" in body) update.locale = body.locale;
+    if ("selectedTitle" in body) update.selectedTitle = body.selectedTitle;
 
     const profile = await prisma.profile.upsert({
       where: { id: SINGLETON_ID },

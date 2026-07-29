@@ -520,7 +520,29 @@ export function Map() {
       }),
     });
     if (!res.ok) throw new Error("Create failed");
-    return (await res.json()) as Memory;
+    const newMemory = (await res.json()) as Memory;
+
+    // Trigger achievement check for EXIF GPS import (#25)
+    if (gpsGroup.length > 0) {
+      fetch("/api/achievements/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceIds: [25] }),
+      })
+        .then((r) => r.json().catch(() => null))
+        .then((data) => {
+          if (data?.newlyUnlocked?.length) {
+            window.dispatchEvent(
+              new CustomEvent("life-trace-new-achievement", {
+                detail: { achievements: data.newlyUnlocked },
+              }),
+            );
+          }
+        })
+        .catch(() => {});
+    }
+
+    return newMemory;
   };
 
   /** Merge all entries into a single memory. */
@@ -565,6 +587,27 @@ export function Map() {
     });
     if (!res.ok) throw new Error("Create failed");
     const created: Memory = await res.json();
+
+    // Trigger achievement check for EXIF GPS import (#25)
+    if (gps.length > 0) {
+      fetch("/api/achievements/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ forceIds: [25] }),
+      })
+        .then((r) => r.json().catch(() => null))
+        .then((data) => {
+          if (data?.newlyUnlocked?.length) {
+            window.dispatchEvent(
+              new CustomEvent("life-trace-new-achievement", {
+                detail: { achievements: data.newlyUnlocked },
+              }),
+            );
+          }
+        })
+        .catch(() => {});
+    }
+
     setLocalMemories([...memories, created]);
     setSelectedId(created.id);
     setImportToast(

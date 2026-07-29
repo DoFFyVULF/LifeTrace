@@ -68,7 +68,31 @@ export function SettingsModal({ open, onClose }: Props) {
                 <button
                   key={lang.value}
                   className={`settings-language-btn ${locale === lang.value ? "is-active" : ""}`}
-                  onClick={() => setLocale(lang.value)}
+                  onClick={() => {
+                    setLocale(lang.value);
+                    // Persist locale to profile for achievement tracking
+                    fetch("/api/profile", {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ locale: lang.value }),
+                    }).catch(() => {});
+                    // Trigger achievement check
+                    setTimeout(async () => {
+                      try {
+                        const res = await fetch("/api/achievements/check", { method: "POST" });
+                        if (res.ok) {
+                          const { newlyUnlocked } = await res.json();
+                          if (newlyUnlocked?.length) {
+                            window.dispatchEvent(
+                              new CustomEvent("life-trace-new-achievement", {
+                                detail: { achievements: newlyUnlocked },
+                              }),
+                            );
+                          }
+                        }
+                      } catch { /* silent */ }
+                    }, 500);
+                  }}
                 >
                   {t(lang.labelKey)}
                 </button>

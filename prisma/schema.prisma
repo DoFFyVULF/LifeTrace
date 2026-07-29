@@ -29,6 +29,14 @@ model Memory {
   updatedAt   DateTime @updatedAt
 }
 
+model UnlockedAchievement {
+  id            String   @id @default(cuid())
+  achievementId Int
+  unlockedAt    DateTime @default(now())
+
+  @@unique([achievementId])
+}
+
 model MemoryThread {
   id        String   @id @default(cuid())
   memoryIds String[] // array of memory ids (keeps existing data shape)
@@ -45,9 +53,11 @@ model Collection {
 }
 
 model Profile {
-  id         String   @id @default("singleton")
-  name       String   @default("")
-  avatarPath String?                // /api/media/… URL for avatar
-  knownTags  String[] @default([])  // user-created tags that may not be on any memory yet
-  updatedAt  DateTime @updatedAt
+  id            String   @id @default("singleton")
+  name          String   @default("")
+  avatarPath    String?                // /api/media/… URL for avatar
+  locale        String   @default("en")
+  knownTags     String[] @default([])  // user-created tags that may not be on any memory yet
+  selectedTitle String?                // selected achievement title slug
+  updatedAt     DateTime @updatedAt
 }

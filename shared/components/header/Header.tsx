@@ -1,6 +1,6 @@
 "use client";
 
-import { Hash, Heart, Plus, Settings, UserRound } from "lucide-react";
+import { Hash, Heart, Plus, Settings, Trophy, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -242,6 +242,13 @@ export function Header() {
         >
           <Hash size={16} />
         </button>
+        <Link
+          href="/achievements"
+          className="icon-button"
+          aria-label={t("achievements.title")}
+        >
+          <Trophy size={16} />
+        </Link>
         <button
           className="icon-button"
           aria-label={t("settings.button")}
