@@ -5,7 +5,7 @@ export default function Logo() {
     <Link href="/" className="brand">
       <div className="brand-mark">
         <img
-          src="/Logo.png"
+          src="/logo.png"
           alt="Life Trace"
           width={100}
           height={30}
