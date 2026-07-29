@@ -83,12 +83,15 @@ export function Map() {
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
-  const [mapStyle, setMapStyle] = useState<MapStyle>(() => {
-    if (typeof window === "undefined") return "light";
-    return (localStorage.getItem("life-trace-map-style") as MapStyle) ?? "light";
-  });
+  const [mapStyle, setMapStyle] = useState<MapStyle>("light");
   const [styleOpen, setStyleOpen] = useState(false);
   const stylePickerRef = useRef<HTMLDivElement>(null);
+
+  // Load saved map style after hydration to avoid SSR mismatch
+  useEffect(() => {
+    const saved = localStorage.getItem("life-trace-map-style") as MapStyle | null;
+    if (saved && saved !== mapStyle) setMapStyle(saved);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const MAP_STYLES = useMemo<Record<MapStyle, { label: string; icon: string }>>(() => ({
     light: { label: "map.style.light", icon: "☀️" },
