@@ -135,6 +135,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "map.gps.conflict.merge.hint": "All photos go into a single memory",
     "map.gps.conflict.split": "Split by location",
     "map.gps.conflict.split.hint": "Create a separate memory for each location",
+    "map.style.light": "Light",
+    "map.style.dark": "Dark",
+    "map.style.satellite": "Satellite",
+    "map.style.vintage": "Vintage",
+    "map.vivid": "Vivid",
 
     // Memory page
     "memory.back": "Back to atlas",
@@ -480,6 +485,11 @@ export const translations: Record<Locale, Record<string, string>> = {
     "map.gps.conflict.merge.hint": "Все фото в одном воспоминании",
     "map.gps.conflict.split": "Разделить по местам",
     "map.gps.conflict.split.hint": "Создать отдельное воспоминание для каждого места",
+    "map.style.light": "Светлая",
+    "map.style.dark": "Тёмная",
+    "map.style.satellite": "Спутник",
+    "map.style.vintage": "Винтаж",
+    "map.vivid": "Яркий",
 
     // Memory page
     "memory.back": "Назад к атласу",

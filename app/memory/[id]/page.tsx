@@ -24,7 +24,11 @@ import { reverseGeocode } from "@/lib/geocode";
 import { TagInput } from "@/shared/components/ui/TagInput";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
-type EditableMemory = Memory & { description?: string; note?: string; tags?: string[] };
+type EditableMemory = Memory & {
+  description?: string;
+  note?: string;
+  tags?: string[];
+};
 const isVideo = (src: string) =>
   src.startsWith("data:video/") || /\.(mp4|webm|mov|m4v)(\?|$)/i.test(src);
 
@@ -39,7 +43,10 @@ export default function MemoryPage() {
     void (async () => {
       try {
         const res = await fetch(`/api/memories/${id}`);
-        if (!res.ok) { setMemory(null); return; }
+        if (!res.ok) {
+          setMemory(null);
+          return;
+        }
         const data: EditableMemory = await res.json();
         setMemory(data);
         // Open viewer at photo=N if specified in query
@@ -47,7 +54,12 @@ export default function MemoryPage() {
         const photoParam = params.get("photo");
         if (photoParam !== null) {
           const index = parseInt(photoParam, 10);
-          if (!isNaN(index) && index >= 0 && data.media && index < data.media.length) {
+          if (
+            !isNaN(index) &&
+            index >= 0 &&
+            data.media &&
+            index < data.media.length
+          ) {
             setViewerIndex(index);
           }
         }
@@ -62,7 +74,9 @@ export default function MemoryPage() {
     if (!memory?.lat || !memory?.lng) return;
     let cancelled = false;
     void (async () => {
-      const geo = await reverseGeocode(memory.lat, memory.lng, locale).catch(() => null);
+      const geo = await reverseGeocode(memory.lat, memory.lng, locale).catch(
+        () => null,
+      );
       if (cancelled || !geo) return;
       const newCity = geo.city || memory.city;
       const newCountry = geo.country || memory.country;
@@ -73,9 +87,13 @@ export default function MemoryPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ city: newCity, country: newCountry }),
-      }).catch(() => { /* silent */ });
+      }).catch(() => {
+        /* silent */
+      });
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [locale, memory?.id, memory?.lat, memory?.lng]);
 
   const persist = async (updated: EditableMemory) => {
@@ -110,7 +128,11 @@ export default function MemoryPage() {
     );
 
   const media = memory?.media ?? [];
-  const heroImage = memory ? (isMediaSrc(memory.image) ? memory.image : media[0]) : undefined;
+  const heroImage = memory
+    ? isMediaSrc(memory.image)
+      ? memory.image
+      : media[0]
+    : undefined;
 
   const addPhotos = async (files: File[]) => {
     if (!memory || !files.length) return;
@@ -204,13 +226,10 @@ export default function MemoryPage() {
         </Link>
         <span className="memory-header-mark">{t("memory.header.mark")}</span>
         <div className="memory-header-actions">
-          <button
-            className="memory-share"
-            onClick={() => navigator.clipboard?.writeText(window.location.href)}
-          >
-            <Share2 size={15} /> {t("memory.share")}
-          </button>
-          <Switch checked={editing} onChange={(checked) => checked ? setEditing(true) : save()} />
+          <Switch
+            checked={editing}
+            onChange={(checked) => (checked ? setEditing(true) : save())}
+          />
         </div>
       </header>
       <section className={`memory-hero ${editing ? "is-editing" : ""}`}>
@@ -238,11 +257,19 @@ export default function MemoryPage() {
               memory.place
             )}
           </p>
-          <div className={`memory-description-wrap ${editing ? "is-editing" : ""}`}>
+          <div
+            className={`memory-description-wrap ${editing ? "is-editing" : ""}`}
+          >
             {editing ? (
-              <textarea className="memory-description-input" value={memory.description ?? t("memory.default.description")} onChange={(event) => update("description", event.target.value)} />
+              <textarea
+                className="memory-description-input"
+                value={memory.description ?? t("memory.default.description")}
+                onChange={(event) => update("description", event.target.value)}
+              />
             ) : (
-              <p className="memory-description">{memory.description || t("memory.default.description")}</p>
+              <p className="memory-description">
+                {memory.description || t("memory.default.description")}
+              </p>
             )}
           </div>
           {editing ? (
@@ -250,14 +277,20 @@ export default function MemoryPage() {
               <span className="eyebrow">{t("tags.label")}</span>
               <TagInput
                 tags={memory.tags ?? []}
-                onChange={(tags) => setMemory((current) => current ? { ...current, tags } : current)}
+                onChange={(tags) =>
+                  setMemory((current) =>
+                    current ? { ...current, tags } : current,
+                  )
+                }
                 placeholder={t("tags.placeholder")}
               />
             </div>
           ) : memory.tags && memory.tags.length > 0 ? (
             <div className="tag-list">
               {memory.tags.map((tag) => (
-                <span key={tag} className="tag-chip">{tag}</span>
+                <span key={tag} className="tag-chip">
+                  {tag}
+                </span>
               ))}
             </div>
           ) : null}
@@ -358,7 +391,10 @@ export default function MemoryPage() {
                 {isVideo(src) ? (
                   <video src={src} muted />
                 ) : (
-                  <img src={src} alt={`${memory.title} ${t("memory.hero.item")}`} />
+                  <img
+                    src={src}
+                    alt={`${memory.title} ${t("memory.hero.item")}`}
+                  />
                 )}
                 <span className="media-slot-label">
                   {isVideo(src) ? (
@@ -399,7 +435,15 @@ export default function MemoryPage() {
         <aside className="memory-notes">
           <span className="eyebrow">{t("memory.your.note")}</span>
           <div className={`memory-note-wrap ${editing ? "is-editing" : ""}`}>
-            {editing ? <textarea className="memory-note-input" value={memory.note ?? t("memory.default.note")} onChange={(event) => update("note", event.target.value)} /> : <p>{memory.note || t("memory.default.note")}</p>}
+            {editing ? (
+              <textarea
+                className="memory-note-input"
+                value={memory.note ?? t("memory.default.note")}
+                onChange={(event) => update("note", event.target.value)}
+              />
+            ) : (
+              <p>{memory.note || t("memory.default.note")}</p>
+            )}
           </div>
           <div className="notes-rule" />
           <span className="eyebrow">{t("memory.connected.to")}</span>

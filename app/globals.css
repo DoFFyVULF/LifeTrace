@@ -918,6 +918,122 @@ button {
   color: var(--ink);
   font-size: 11px;
 }
+
+/* ─── Map Style Picker ──────────────────────────────── */
+.map-style-picker {
+  position: relative;
+}
+.map-style-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(132, 153, 145, 0.52);
+  border-radius: 7px;
+  background: rgba(244, 241, 235, 0.82);
+  box-shadow: 0 6px 18px rgba(56, 79, 70, 0.08);
+  color: var(--ink);
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.map-style-btn:hover {
+  background: rgba(244, 241, 235, 0.95);
+  box-shadow: 0 6px 18px rgba(56, 79, 70, 0.14);
+}
+.map-style-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 170px;
+  background: rgba(250, 248, 244, 0.97);
+  border: 1px solid rgba(132, 153, 145, 0.35);
+  border-radius: 9px;
+  box-shadow: 0 8px 28px rgba(56, 79, 70, 0.15);
+  padding: 5px;
+  z-index: 100;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: styleDropdownFadeIn 0.15s ease;
+}
+@keyframes styleDropdownFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.map-style-option {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s;
+  text-align: left;
+}
+.map-style-option:hover {
+  background: rgba(132, 153, 145, 0.12);
+}
+.map-style-option.is-active {
+  color: #3f7a5f;
+  font-weight: 600;
+}
+.map-style-option-icon {
+  font-size: 14px;
+  line-height: 1;
+  width: 20px;
+  text-align: center;
+}
+.map-style-option-label {
+  flex: 1;
+}
+.map-style-option-check {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.map-style-divider {
+  height: 1px;
+  background: rgba(132, 153, 145, 0.2);
+  margin: 4px 0;
+}
+
+/* ── Style-specific canvas filters ─────────────────── */
+.real-map--dark .maplibregl-canvas {
+  filter: saturate(0.92) brightness(0.85);
+}
+.real-map--satellite .maplibregl-canvas {
+  filter: saturate(1.05) contrast(1.08);
+}
+.real-map--vintage .maplibregl-canvas {
+  filter: saturate(0.8) sepia(0.3) brightness(0.95);
+}
+
+/* ── Style-specific UI readability ────────────── */
+.real-map--dark .map-context .context-kicker,
+.real-map--dark .map-context .context-count,
+.real-map--satellite .map-context .context-kicker,
+.real-map--satellite .map-context .context-count {
+  color: #cad3cf;
+  text-shadow: 0 1px 6px rgba(0,0,0,0.5);
+}
+.real-map--dark .map-context strong,
+.real-map--satellite .map-context strong {
+  color: #f0f4f1;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.55);
+}
+.real-map--vintage .map-context .context-kicker,
+.real-map--vintage .map-context .context-count {
+  color: #52463b;
+}
+.real-map--vintage .map-context strong {
+  color: #3d3229;
+}
+
 .favorite-toggle {
   display: flex;
   width: 100%;

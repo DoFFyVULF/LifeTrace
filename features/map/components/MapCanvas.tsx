@@ -5,6 +5,91 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { isMediaSrc } from "@/lib/media";
 
+export type MapStyle = "light" | "dark" | "satellite" | "vintage";
+
+const TILES: Record<MapStyle, {
+  tiles: string[];
+  tileSize: number;
+  attribution: string;
+  paint: Record<string, number | string | boolean | undefined>;
+}> = {
+  light: {
+    tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png"],
+    tileSize: 256,
+    attribution: "© CARTO, © OpenStreetMap contributors",
+    paint: {
+      "raster-saturation": 0.12,
+      "raster-contrast": -0.04,
+      "raster-brightness-min": 0.15,
+      "raster-brightness-max": 1,
+      "raster-opacity": 0.92,
+    },
+  },
+  dark: {
+    tiles: ["https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png"],
+    tileSize: 256,
+    attribution: "© CARTO, © OpenStreetMap contributors",
+    paint: {
+      "raster-saturation": -0.15,
+      "raster-contrast": 0.06,
+      "raster-brightness-min": 0.08,
+      "raster-brightness-max": 0.92,
+      "raster-opacity": 0.95,
+    },
+  },
+  satellite: {
+    tiles: [
+      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    ],
+    tileSize: 256,
+    attribution:
+      "© Esri, Maxar, Earthstar Geographics and the GIS User Community",
+    paint: {
+      "raster-saturation": -0.08,
+      "raster-contrast": 0.02,
+      "raster-opacity": 1,
+    },
+  },
+  vintage: {
+    tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+    tileSize: 256,
+    attribution: "© OpenStreetMap contributors",
+    paint: {
+      "raster-saturation": 0.35,
+      "raster-contrast": 0.12,
+      "raster-brightness-min": 0.18,
+      "raster-brightness-max": 0.95,
+      "raster-opacity": 0.88,
+    },
+  },
+};
+
+const LAYER_ID = "map-raster";
+const SOURCE_ID = "map-tiles";
+
+function buildStyle(style: MapStyle): maplibregl.StyleSpecification {
+  const t = TILES[style];
+  return {
+    version: 8,
+    sources: {
+      [SOURCE_ID]: {
+        type: "raster",
+        tiles: t.tiles,
+        tileSize: t.tileSize,
+        attribution: t.attribution,
+      },
+    },
+    layers: [
+      {
+        id: LAYER_ID,
+        type: "raster",
+        source: SOURCE_ID,
+        paint: t.paint,
+      },
+    ],
+  };
+}
+
 function getSymbolIcon(symbol: string): string {
   const icons: Record<string, string> = {
     pin: "📍", heart: "♥", star: "★", flag: "🚩",
@@ -33,32 +118,7 @@ type Props = {
   threads: MemoryThread[];
   onMapClick: (lng: number, lat: number) => void;
   linkingIds: string[];
-};
-
-const style: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: "raster",
-      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors",
-    },
-  },
-  layers: [
-    {
-      id: "osm",
-      type: "raster",
-      source: "osm",
-      paint: {
-        "raster-saturation": -0.55,
-        "raster-contrast": -0.08,
-        "raster-brightness-min": 0.2,
-        "raster-brightness-max": 0.98,
-        "raster-opacity": 0.86,
-      },
-    },
-  ],
+  mapStyle: MapStyle;
 };
 
 const threadPalette = [
@@ -69,6 +129,7 @@ const threadPalette = [
 export function MapCanvas({
   memories, threadMemories, selectedId, onSelect,
   showGrid, showThreads, vivid, threads, onMapClick, linkingIds,
+  mapStyle,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -208,7 +269,7 @@ export function MapCanvas({
 
     const map = new maplibregl.Map({
       container: containerRef.current,
-      style,
+      style: buildStyle(mapStyle),
       center: [28, 35],
       zoom: 2.25,
       minZoom: 1.4,
@@ -234,12 +295,6 @@ export function MapCanvas({
       drawThreads();
     });
 
-    // ── КЛЮЧЕВОЕ ИЗМЕНЕНИЕ ──
-    // Рисуем СИНХРОННО на "move".
-    // MapLibre fires "move" ровно 1 раз за кадр (внутри своего rAF),
-    // и map.project() уже возвращает актуальные координаты.
-    // Никакой rAF-обёртки — она добавляла задержку на 1 кадр,
-    // из-за чего canvas «отставал» от DOM-маркеров.
     map.on("move", drawThreads);
 
     const resizeObserver = new ResizeObserver(() => {
@@ -275,6 +330,41 @@ export function MapCanvas({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onMapClick]);
+
+  // ── Dynamic style switching via layer/source swap ──────────────
+  // Instead of map.setStyle() (which destroys everything), we just
+  // swap the raster source and layer in-place. Markers keep working.
+  const appliedStyleRef = useRef<MapStyle>(mapStyle);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    if (appliedStyleRef.current === mapStyle) return;
+    appliedStyleRef.current = mapStyle;
+
+    const t = TILES[mapStyle];
+
+    // Remove existing layer + source (must remove layer first)
+    if (map.getLayer(LAYER_ID)) map.removeLayer(LAYER_ID);
+    if (map.getSource(SOURCE_ID)) map.removeSource(SOURCE_ID);
+
+    // Add new source + layer
+    map.addSource(SOURCE_ID, {
+      type: "raster",
+      tiles: t.tiles,
+      tileSize: t.tileSize,
+      attribution: t.attribution,
+    });
+    map.addLayer({
+      id: LAYER_ID,
+      type: "raster",
+      source: SOURCE_ID,
+      paint: t.paint,
+    });
+
+    // Repaint canvas overlay after tiles start loading
+    updateCanvasSize();
+    drawThreads();
+  }, [mapStyle, drawThreads, updateCanvasSize, mapReady]);
 
   // flyTo selected
   useEffect(() => {
@@ -422,7 +512,7 @@ export function MapCanvas({
 
   return (
     <div
-      className={`real-map ${vivid ? "real-map--vivid" : ""} ${showGrid ? "real-map--grid" : ""}`}
+      className={`real-map ${vivid ? "real-map--vivid" : ""} ${showGrid ? "real-map--grid" : ""} real-map--${mapStyle}`}
       aria-label="Реальная интерактивная карта воспоминаний"
     >
       <div className="maplibre-host" ref={containerRef} />

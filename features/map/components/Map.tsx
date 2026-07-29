@@ -14,7 +14,7 @@ import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
 import { processFileMetadata, type FileMetadataResult } from "@/lib/photo-metadata.client";
 import { isPhotoFile } from "@/lib/photo-metadata";
-import type { Memory, MemoryThread } from "./MapCanvas";
+import type { Memory, MemoryThread, MapStyle } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
 import { getRandomMemoryColor, mixColors, PIN_SYMBOLS, type PinSymbol } from "@/lib/colors";
 import { TagInput } from "@/shared/components/ui/TagInput";
@@ -83,6 +83,19 @@ export function Map() {
   const pendingImportRef = useRef(pendingImport);
   const pendingMediaRef = useRef<string[] | null>(null);
   const [allTags, setAllTags] = useState<string[]>([]);
+  const [mapStyle, setMapStyle] = useState<MapStyle>(() => {
+    if (typeof window === "undefined") return "light";
+    return (localStorage.getItem("life-trace-map-style") as MapStyle) ?? "light";
+  });
+  const [styleOpen, setStyleOpen] = useState(false);
+  const stylePickerRef = useRef<HTMLDivElement>(null);
+
+  const MAP_STYLES = useMemo<Record<MapStyle, { label: string; icon: string }>>(() => ({
+    light: { label: "map.style.light", icon: "☀️" },
+    dark: { label: "map.style.dark", icon: "🌙" },
+    satellite: { label: "map.style.satellite", icon: "🛰️" },
+    vintage: { label: "map.style.vintage", icon: "🎨" },
+  }), []);
   const stableLinkingIds = useMemo(() => linkingIds ?? [], [linkingIds]);
   const selectedRef = useRef<string | null>(null);
   const memoriesRef = useRef<Memory[]>(memories);
@@ -783,6 +796,18 @@ export function Map() {
       }
     }
   };
+  // Close style picker on outside click
+  useEffect(() => {
+    if (!styleOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (stylePickerRef.current && !stylePickerRef.current.contains(e.target as Node)) {
+        setStyleOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [styleOpen]);
+
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent("life-trace-memory-state", {
@@ -838,6 +863,7 @@ export function Map() {
         threads={threads}
         onMapClick={handleMapClick}
         linkingIds={stableLinkingIds}
+        mapStyle={mapStyle}
       />
       <div className="map-topbar">
         <div className="view-switch">
@@ -878,10 +904,43 @@ export function Map() {
             </button>
           )}
         </div>
-        <button className="map-customize" onClick={() => setVivid(!vivid)}>
-          <SlidersHorizontal size={15} />
-          {t("map.customize")}
-        </button>
+        <div className="map-style-picker" ref={stylePickerRef}>
+          <button
+            className="map-style-btn"
+            onClick={() => setStyleOpen(!styleOpen)}
+            title={t("map.customize")}
+          >
+            <SlidersHorizontal size={15} />
+          </button>
+          {styleOpen && (
+            <div className="map-style-dropdown">
+              {(Object.entries(MAP_STYLES) as [MapStyle, { label: string; icon: string }][]).map(([key, def]) => (
+                <button
+                  key={key}
+                  className={`map-style-option ${mapStyle === key ? "is-active" : ""}`}
+                  onClick={() => {
+                    setMapStyle(key);
+                    localStorage.setItem("life-trace-map-style", key);
+                    setStyleOpen(false);
+                  }}
+                >
+                  <span className="map-style-option-icon">{def.icon}</span>
+                  <span className="map-style-option-label">{t(def.label)}</span>
+                  {mapStyle === key && <span className="map-style-option-check">✓</span>}
+                </button>
+              ))}
+              <div className="map-style-divider" />
+              <button
+                className={`map-style-option ${vivid ? "is-active" : ""}`}
+                onClick={() => setVivid(!vivid)}
+              >
+                <span className="map-style-option-icon">{vivid ? "🎨" : "🖌️"}</span>
+                <span className="map-style-option-label">{t("map.vivid")}</span>
+                {vivid && <span className="map-style-option-check">✓</span>}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <div className="map-floating-tools">
         <button
