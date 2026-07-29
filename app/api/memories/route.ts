@@ -10,13 +10,30 @@ import { DEMO_MEMORIES } from "@/lib/demo-data";
  * Supports ?filter=favorites and ?search=<query>.
  */
 export async function GET(request: NextRequest) {
-  if (!prisma) {
-    return Response.json(DEMO_MEMORIES);
-  }
-
   const { searchParams } = request.nextUrl;
   const filter = searchParams.get("filter");
   const search = searchParams.get("search");
+
+  if (!prisma) {
+    let result = DEMO_MEMORIES.map((m, i) => ({ id: `seed-${i}`, ...m }));
+
+    if (filter === "favorites") {
+      result = result.filter((m) => m.favorite);
+    }
+
+    if (search) {
+      const lower = search.toLowerCase();
+      result = result.filter(
+        (m) =>
+          m.title.toLowerCase().includes(lower) ||
+          m.place.toLowerCase().includes(lower) ||
+          (m.description ?? "").toLowerCase().includes(lower) ||
+          (m.tags ?? []).some((tag) => tag.toLowerCase().includes(lower)),
+      );
+    }
+
+    return Response.json(result);
+  }
 
   const where: Record<string, unknown> = {};
   if (filter === "favorites") {
