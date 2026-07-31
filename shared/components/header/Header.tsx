@@ -1,6 +1,6 @@
 "use client";
 
-import { Hash, Heart, Plus, Settings, Trophy, UserRound } from "lucide-react";
+import { Hash, Heart, Menu, Plus, Settings, Trophy, UserRound, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -42,10 +42,61 @@ export function Header() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [tagManagerOpen, setTagManagerOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [memories, setMemories] = useState<HeaderMemory[]>([]);
   const isProfile = pathname === "/profile";
+  const isMapPage = pathname === "/";
   const searchRef = useRef<HTMLInputElement>(null);
   const searchWrapRef = useRef<HTMLDivElement>(null);
+
+  // Mobile sidebar drawer — open/close via body class so CSS can react
+  const closeMobileSidebar = useCallback(() => {
+    document.body.classList.remove("mobile-sidebar-open");
+    setMobileSidebarOpen(false);
+  }, []);
+
+  const toggleMobileSidebar = useCallback(() => {
+    setMobileSidebarOpen((open) => !open);
+  }, []);
+
+  // Sync drawer state to a body class so CSS can react (kept outside the
+  // state updater — a side effect inside it would run twice in StrictMode)
+  useEffect(() => {
+    document.body.classList.toggle("mobile-sidebar-open", mobileSidebarOpen);
+  }, [mobileSidebarOpen]);
+
+  useEffect(() => {
+    if (!isMapPage) return;
+    // Taps on the burger's SVG icon: by the time the click bubbles to the
+    // document listener, React has already swapped Menu → X, detaching the
+    // original <path> target, so closest('.mobile-menu-btn') on it fails.
+    // Detect the tap on the capture phase (DOM still intact) instead.
+    let burgerTapped = false;
+    const onCapture = (event: MouseEvent) => {
+      const el = event.target as Element | null;
+      burgerTapped = !!el?.closest?.(".mobile-menu-btn");
+    };
+    const onDocClick = (event: MouseEvent) => {
+      if (!document.body.classList.contains("mobile-sidebar-open")) return;
+      if (burgerTapped) {
+        burgerTapped = false;
+        return;
+      }
+      const target = event.target as Element | null;
+      if (target?.closest(".sidebar")) {
+        // Keep the drawer open unless an interactive row/link was tapped
+        if (target.closest("button, a")) closeMobileSidebar();
+        return;
+      }
+      closeMobileSidebar();
+    };
+    document.addEventListener("click", onCapture, true);
+    document.addEventListener("click", onDocClick);
+    return () => {
+      document.removeEventListener("click", onCapture, true);
+      document.removeEventListener("click", onDocClick);
+    };
+  }, [isMapPage, closeMobileSidebar]);
 
   const fetchMemories = useCallback(async () => {
     try {
@@ -232,6 +283,16 @@ export function Header() {
       </div>
 
       <div className="header-actions">
+        {isMapPage && (
+          <button
+            className="mobile-menu-btn"
+            aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
+            aria-expanded={mobileSidebarOpen}
+            onClick={toggleMobileSidebar}
+          >
+            {mobileSidebarOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
+        )}
         <button className="add-button" onClick={handleAdd}>
           <Plus size={15} /> {t("add.memory")}
         </button>

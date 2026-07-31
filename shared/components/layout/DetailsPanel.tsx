@@ -9,6 +9,7 @@ import {
   Pencil,
   Link2,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -152,6 +153,21 @@ export function DetailsPanel() {
   // ─── Detail view ────────────────────────────────────────────────
   return (
     <aside className="details-panel">
+      {/* Close — mobile bottom-sheet only */}
+      <button
+        className="details-close"
+        aria-label="Close details"
+        onClick={() => {
+          setSelectedId(null);
+          setMemory(null);
+          window.dispatchEvent(
+            new CustomEvent("life-trace-select", { detail: null }),
+          );
+        }}
+      >
+        <X size={16} />
+      </button>
+
       {/* Eyebrow */}
       <span className="panel-label">
         {t("map.selected.memory") || "SELECTED MEMORY"}

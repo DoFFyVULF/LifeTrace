@@ -2,6 +2,7 @@
 import { isMediaSrc } from "@/lib/media";
 import { Compass, Heart, MapPinned, Star, Clock } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 
 type ArchiveMemory = {
@@ -230,16 +231,18 @@ export function Sidebar() {
           {shown.length} {showFavoritesOnly ? t("sidebar.favorites.count") : t("sidebar.memories.count")}
         </span>
       </div>
-      {collectionOpen && (
-        <div className="collection-modal" role="dialog" aria-modal="true" aria-label={t("collection.create.modal")} onMouseDown={(event) => { if (event.target === event.currentTarget) setCollectionOpen(false); }}>
-          <div className="collection-modal-card">
-            <div className="collection-modal-head"><div><span className="panel-label">{t("collection.title")}</span><h3>{t("collection.heading")}</h3><p>{t("collection.desc")}</p></div><button className="collection-modal-close" onClick={() => setCollectionOpen(false)} aria-label={t("collection.close")}>×</button></div>
-            <input className="collection-name-input" autoFocus placeholder={t("collection.name.placeholder")} value={collectionName} onChange={(event) => setCollectionName(event.target.value)} />
-            <div className="collection-picker">{memories.map((memory) => <label key={memory.id}><input type="checkbox" checked={collectionSelection.includes(memory.id)} onChange={() => setCollectionSelection((selected) => selected.includes(memory.id) ? selected.filter((id) => id !== memory.id) : [...selected, memory.id])} /><span className="collection-choice-dot" style={{ background: memory.color }} /><span>{memory.title}<small>{memory.place || t("sidebar.unplaced")}</small></span></label>)}</div>
-            <div className="collection-modal-foot"><span>{collectionSelection.length} {t("collection.selected")}</span><button className="collection-save" onClick={createCollection} disabled={!collectionName.trim() || !collectionSelection.length}>{t("collection.create")}</button></div>
-          </div>
-        </div>
-      )}
+      {collectionOpen &&
+        createPortal(
+          <div className="collection-modal" role="dialog" aria-modal="true" aria-label={t("collection.create.modal")} onMouseDown={(event) => { if (event.target === event.currentTarget) setCollectionOpen(false); }}>
+            <div className="collection-modal-card">
+              <div className="collection-modal-head"><div><span className="panel-label">{t("collection.title")}</span><h3>{t("collection.heading")}</h3><p>{t("collection.desc")}</p></div><button className="collection-modal-close" onClick={() => setCollectionOpen(false)} aria-label={t("collection.close")}>×</button></div>
+              <input className="collection-name-input" autoFocus placeholder={t("collection.name.placeholder")} value={collectionName} onChange={(event) => setCollectionName(event.target.value)} />
+              <div className="collection-picker">{memories.map((memory) => <label key={memory.id}><input type="checkbox" checked={collectionSelection.includes(memory.id)} onChange={() => setCollectionSelection((selected) => selected.includes(memory.id) ? selected.filter((id) => id !== memory.id) : [...selected, memory.id])} /><span className="collection-choice-dot" style={{ background: memory.color }} /><span>{memory.title}<small>{memory.place || t("sidebar.unplaced")}</small></span></label>)}</div>
+              <div className="collection-modal-foot"><span>{collectionSelection.length} {t("collection.selected")}</span><button className="collection-save" onClick={createCollection} disabled={!collectionName.trim() || !collectionSelection.length}>{t("collection.create")}</button></div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </aside>
   );
 }
