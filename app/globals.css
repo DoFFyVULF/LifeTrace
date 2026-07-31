@@ -398,7 +398,6 @@ button {
 .real-map-pin:hover,
 .real-map-pin.is-active {
   transform: rotate(-45deg) scale(1.24);
-  box-shadow: 0 5px 14px rgba(38, 56, 49, 0.32);
 }
 .real-map-pin.is-active {
   z-index: 2;
@@ -449,7 +448,6 @@ button {
 .real-map-pin.real-map-pin--custom:hover,
 .real-map-pin.real-map-pin--custom.is-active {
   transform: scale(1.24);
-  box-shadow: 0 5px 14px rgba(38, 56, 49, 0.32);
   background: transparent;
 }
 .real-map-pin.real-map-pin--custom.is-linking {
