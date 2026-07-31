@@ -14,6 +14,10 @@ import { isMediaSrc, prepareUpload, uploadMedia } from "@/lib/media";
 import { reverseGeocode } from "@/lib/geocode";
 import { processFileMetadata, type FileMetadataResult } from "@/lib/photo-metadata.client";
 import { IS_DEMO } from "@/shared/lib/demo";
+import {
+  applyDemoOverrides,
+  isDemoDeleted,
+} from "@/shared/lib/demoStore";
 import { isPhotoFile } from "@/lib/photo-metadata";
 import type { Memory, MemoryThread, MapStyle } from "./MapCanvas";
 import { MapCanvas } from "./MapCanvas";
@@ -143,7 +147,11 @@ export function Map() {
           fetch("/api/memories").then((r) => (r.ok ? r.json() : [])),
           fetch("/api/threads").then((r) => (r.ok ? r.json() : [])),
         ]);
-        setMemories(m as Memory[]);
+        setMemories(
+          (m as Memory[])
+            .filter((mm) => !isDemoDeleted(mm.id))
+            .map((mm) => applyDemoOverrides(mm)),
+        );
         setThreads(t as MemoryThread[]);
       } catch {
         setMemories([]);
@@ -832,6 +840,28 @@ export function Map() {
       }),
     );
   }, [memories]);
+  // Demo mode: keep the map in sync with localStorage overrides (favorite,
+  // delete) made from the details panel / memory page. Idempotent — returns
+  // the same array reference when nothing changed, so no dispatch loop.
+  useEffect(() => {
+    if (!IS_DEMO) return;
+    const onState = () => {
+      setMemories((prev) => {
+        const next = prev
+          .map((m) => applyDemoOverrides(m))
+          .filter((m) => !isDemoDeleted(m.id));
+        if (
+          next.length === prev.length &&
+          next.every((m, i) => m === prev[i])
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    };
+    window.addEventListener("life-trace-memory-state", onState);
+    return () => window.removeEventListener("life-trace-memory-state", onState);
+  }, []);
   useEffect(() => {
     if (!importToast) return;
     const timeout = window.setTimeout(() => setImportToast(null), 3600);

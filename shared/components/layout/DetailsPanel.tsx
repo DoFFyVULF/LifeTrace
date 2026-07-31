@@ -9,6 +9,7 @@ import {
   Pencil,
   Link2,
   Trash2,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +17,12 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 import { isMediaSrc } from "@/lib/media";
 import { IS_DEMO } from "@/shared/lib/demo";
+import {
+  applyDemoOverrides,
+  deleteDemoMemory,
+  isDemoDeleted,
+  saveDemoPatch,
+} from "@/shared/lib/demoStore";
 
 type DetailMemory = {
   id: string;
@@ -47,7 +54,10 @@ export function DetailsPanel() {
   const fetchMemory = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/memories/${id}`);
-      if (res.ok) setMemory(await res.json());
+      if (res.ok) {
+        const data = (await res.json()) as DetailMemory;
+        setMemory(isDemoDeleted(data.id) ? null : applyDemoOverrides(data));
+      }
     } catch {
       /* silent */
     }
@@ -117,6 +127,11 @@ export function DetailsPanel() {
     if (!memory) return;
     const nextFavorite = !memory.favorite;
     setMemory((prev) => (prev ? { ...prev, favorite: nextFavorite } : null));
+    if (IS_DEMO) {
+      saveDemoPatch(memory.id, { favorite: nextFavorite });
+      window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
+      return;
+    }
     try {
       await fetch(`/api/memories/${memory.id}`, {
         method: "PATCH",
@@ -153,6 +168,21 @@ export function DetailsPanel() {
   // ─── Detail view ────────────────────────────────────────────────
   return (
     <aside className="details-panel">
+      {/* Close — mobile bottom-sheet only */}
+      <button
+        className="details-close"
+        aria-label="Close details"
+        onClick={() => {
+          setSelectedId(null);
+          setMemory(null);
+          window.dispatchEvent(
+            new CustomEvent("life-trace-select", { detail: null }),
+          );
+        }}
+      >
+        <X size={16} />
+      </button>
+
       {/* Eyebrow */}
       <span className="panel-label">
         {t("map.selected.memory") || "SELECTED MEMORY"}
@@ -253,31 +283,34 @@ export function DetailsPanel() {
 
       {/* Actions */}
       <div className="detail-actions">
-        {!IS_DEMO && (
-          <button
-            className={`detail-action ${memory.favorite ? "is-favorite" : ""}`}
-            onClick={toggleFavorite}
-            aria-label={memory.favorite ? "Remove from favorites" : "Add to favorites"}
-          >
-            <Heart
-              size={14}
-              fill={memory.favorite ? "currentColor" : "none"}
-            />
-            {memory.favorite
-              ? t("map.remove.favorite") || "Unfavorite"
-              : t("map.add.to.favorites") || "Favorite"}
-          </button>
-        )}
+        <button
+          className={`detail-action ${memory.favorite ? "is-favorite" : ""}`}
+          onClick={toggleFavorite}
+          aria-label={memory.favorite ? "Remove from favorites" : "Add to favorites"}
+        >
+          <Heart
+            size={14}
+            fill={memory.favorite ? "currentColor" : "none"}
+          />
+          {memory.favorite
+            ? t("map.remove.favorite") || "Unfavorite"
+            : t("map.add.to.favorites") || "Favorite"}
+        </button>
 
-        {!IS_DEMO && (
-          <button
-            className="detail-action"
-            onClick={() => dispatchAction("life-trace-edit-memory")}
-          >
-            <Pencil size={14} />
-            {t("map.edit") || "Edit"}
-          </button>
-        )}
+        <button
+          className="detail-action"
+          onClick={() => {
+            if (IS_DEMO) {
+              // No DB in demo mode — the memory page offers local editing
+              router.push(`/memory/${memory.id}`);
+            } else {
+              dispatchAction("life-trace-edit-memory");
+            }
+          }}
+        >
+          <Pencil size={14} />
+          {t("map.edit") || "Edit"}
+        </button>
 
         {!IS_DEMO && (
           <button
@@ -297,15 +330,25 @@ export function DetailsPanel() {
           {t("map.open.memory") || "Open"}
         </Link>
 
-        {!IS_DEMO && (
-          <button
-            className="detail-action detail-action--delete"
-            onClick={() => dispatchAction("life-trace-delete-memory")}
-          >
-            <Trash2 size={14} />
-            {t("map.delete.memory") || "Delete"}
-          </button>
-        )}
+        <button
+          className="detail-action detail-action--delete"
+          onClick={() => {
+            if (IS_DEMO) {
+              deleteDemoMemory(memory.id);
+              setSelectedId(null);
+              setMemory(null);
+              window.dispatchEvent(
+                new CustomEvent("life-trace-select", { detail: null }),
+              );
+              window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
+            } else {
+              dispatchAction("life-trace-delete-memory");
+            }
+          }}
+        >
+          <Trash2 size={14} />
+          {t("map.delete.memory") || "Delete"}
+        </button>
       </div>
     </aside>
   );

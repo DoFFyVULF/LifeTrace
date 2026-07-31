@@ -24,6 +24,11 @@ import { reverseGeocode } from "@/lib/geocode";
 import { TagInput } from "@/shared/components/ui/TagInput";
 import { useLocale } from "@/shared/lib/locale/LocaleProvider";
 import { IS_DEMO } from "@/shared/lib/demo";
+import {
+  applyDemoOverrides,
+  isDemoDeleted,
+  saveDemoPatch,
+} from "@/shared/lib/demoStore";
 
 type EditableMemory = Memory & {
   description?: string;
@@ -49,7 +54,11 @@ export default function MemoryPage() {
           return;
         }
         const data: EditableMemory = await res.json();
-        setMemory(data);
+        if (isDemoDeleted(data.id)) {
+          setMemory(null);
+          return;
+        }
+        setMemory(applyDemoOverrides(data));
         // Open viewer at photo=N if specified in query
         const params = new URLSearchParams(window.location.search);
         const photoParam = params.get("photo");
@@ -100,6 +109,12 @@ export default function MemoryPage() {
 
   const persist = async (updated: EditableMemory) => {
     setMemory(updated);
+    if (IS_DEMO) {
+      // No DB in demo mode — keep edits local to this browser
+      saveDemoPatch(id, updated);
+      window.dispatchEvent(new CustomEvent("life-trace-memory-state"));
+      return;
+    }
     try {
       await fetch(`/api/memories/${id}`, {
         method: "PATCH",
@@ -227,14 +242,12 @@ export default function MemoryPage() {
           <ArrowLeft size={16} /> {t("memory.back")}
         </Link>
         <span className="memory-header-mark">{t("memory.header.mark")}</span>
-        {!IS_DEMO && (
-          <div className="memory-header-actions">
-            <Switch
-              checked={editing}
-              onChange={(checked) => (checked ? setEditing(true) : save())}
-            />
-          </div>
-        )}
+        <div className="memory-header-actions">
+          <Switch
+            checked={editing}
+            onChange={(checked) => (checked ? setEditing(true) : save())}
+          />
+        </div>
       </header>
       <section className={`memory-hero ${editing ? "is-editing" : ""}`}>
         <div className="memory-hero-copy">
@@ -367,13 +380,13 @@ export default function MemoryPage() {
               <span className="eyebrow">{t("memory.visual.journal")}</span>
               <h2>{t("memory.moments.from.here")}</h2>
             </div>
-            {!IS_DEMO && (
-              <div className="memory-edit-actions">
-                {editing && (
-                  <button className="add-media add-media--save" onClick={save}>
-                    <Save size={14} /> {t("memory.save.changes")}
-                  </button>
-                )}
+            <div className="memory-edit-actions">
+              {editing && (
+                <button className="add-media add-media--save" onClick={save}>
+                  <Save size={14} /> {t("memory.save.changes")}
+                </button>
+              )}
+              {!IS_DEMO && (
                 <label className="add-media">
                   <Plus size={14} /> {t("memory.add.media")}
                   <input
@@ -384,8 +397,8 @@ export default function MemoryPage() {
                     onChange={onChoose}
                   />
                 </label>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <div className={galleryClass}>
             {media.map((src, index) => (
@@ -414,7 +427,7 @@ export default function MemoryPage() {
                   )}{" "}
                   · {String(index + 1).padStart(2, "0")}
                 </span>
-                {editing && !IS_DEMO && (
+                {editing && (
                   <span
                     className="media-delete"
                     role="button"
