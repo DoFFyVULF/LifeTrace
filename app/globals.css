@@ -4178,7 +4178,7 @@ button {
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 865px) {
   .app-header {
     flex-wrap: wrap;
     height: auto;
